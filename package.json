@@ -1,0 +1,42 @@
+{
+  "name": "ai-crypto-options-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI-assisted crypto options trading MVP monorepo",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "db:up": "docker compose up -d db redis",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @ai-options/api run db:migrate",
+    "db:studio": "pnpm --filter @ai-options/api run db:studio",
+    "db:generate": "pnpm --filter @ai-options/api run db:generate",
+    "db:seed": "pnpm --filter @ai-options/api run db:seed",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.4",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.3.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.6.0"
+  }
+}
