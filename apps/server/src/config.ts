@@ -17,8 +17,8 @@ export type TradingMode = (typeof TRADING_MODES)[number];
 const envSchema = z.object({
   /** PAPER = simulated trading, TESTNET = real venue test network, LIVE = real funds. */
   MODE: z.enum(TRADING_MODES).default('PAPER'),
-  /** SQLite database file path (absolute, or relative to the repository root). */
-  DB_PATH: z.string().trim().min(1).default('data/aioption.db'),
+  /** SQLite trading database file path (absolute, or relative to the repository root). */
+  DB_PATH: z.string().trim().min(1).default('data/trading.db'),
   /** Base currency used for balances and P/L accounting. */
   BASE_CURRENCY: z.string().trim().min(1).max(16).default('USD'),
   /** Fixed trade size in USD for each option position. */

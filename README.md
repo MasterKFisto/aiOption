@@ -87,6 +87,34 @@ Config lives in `apps/server/src/config.ts` (Zod-validated env vars, defaults in
 `.env.example`; the `.env` at the repo root is injected into the container via
 `env_file` in `docker-compose.yml`).
 
+## Database (SQLite)
+
+Single-user personal app → SQLite (no external DB server). The layer lives in
+`apps/server/src/db`:
+
+- `connection.ts` — opens `data/trading.db` (config `DB_PATH`), enables WAL mode
+  and foreign keys, idempotent singleton.
+- `migrations.ts` — creates `account` (single row id=1), `positions`,
+  `transactions`, `ai_decisions`, `risk_events` on startup if missing.
+- `repositories.ts` — typed CRUD backed by the interfaces in
+  `@aioption/shared` (`packages/shared/src/types.ts`).
+
+Install the driver (native — needs `allowBuilds` in pnpm-workspace.yaml):
+
+```bash
+docker compose exec dev pnpm --filter @aioption/server add better-sqlite3
+docker compose exec dev pnpm --filter @aioption/server add -D @types/better-sqlite3
+```
+
+After editing `packages/shared`, rebuild it (the server consumes its `dist/`):
+
+```bash
+docker compose exec dev pnpm --filter @aioption/shared build
+```
+
+The DB file is runtime data and gitignored (`data/`); delete
+`data/trading.db*` to reset.
+
 ## TypeScript
 
 Base strict config lives in `tsconfig.base.json` (TypeScript 7.x). Each package

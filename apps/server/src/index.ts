@@ -2,6 +2,7 @@ import cors from '@fastify/cors';
 import Fastify from 'fastify';
 
 import { config } from './config.js';
+import { getDb, initDb } from './db/connection.js';
 import { logger } from './logger.js';
 
 // Fastify 5 rejects pino *instances* passed via the `logger` option (that one
@@ -18,12 +19,19 @@ await app.register(cors, {
   origin: true,
 });
 
-app.get('/api/health', async () => ({
-  status: 'ok',
-  mode: config.MODE,
-  timestamp: new Date().toISOString(),
-  uptimeSeconds: Math.round(process.uptime()),
-}));
+// Open the SQLite database and run migrations before serving any traffic.
+initDb();
+
+app.get('/api/health', async () => {
+  const dbCheck = getDb().prepare<[], { ok: number }>('SELECT 1 AS ok').get();
+  return {
+    status: 'ok',
+    mode: config.MODE,
+    database: dbCheck?.ok === 1 ? 'ok' : 'error',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.round(process.uptime()),
+  };
+});
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });
