@@ -42,6 +42,8 @@ export interface Account {
   equity: number;
   /** Uncommitted cash available for new trades. */
   cashBalance: number;
+  /** Cash reserved by open positions. */
+  lockedBalance: number;
   baseCurrency: string;
   fixedTradeSizeUsd: number;
   maxOpenPositions: number;
@@ -117,7 +119,13 @@ export interface RiskEvent {
 export type AccountUpdate = Partial<
   Pick<
     Account,
-    'mode' | 'equity' | 'cashBalance' | 'fixedTradeSizeUsd' | 'maxOpenPositions' | 'lossLimitPercent'
+    | 'mode'
+    | 'equity'
+    | 'cashBalance'
+    | 'lockedBalance'
+    | 'fixedTradeSizeUsd'
+    | 'maxOpenPositions'
+    | 'lossLimitPercent'
   >
 >;
 

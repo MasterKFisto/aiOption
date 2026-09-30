@@ -115,6 +115,32 @@ docker compose exec dev pnpm --filter @aioption/shared build
 The DB file is runtime data and gitignored (`data/`); delete
 `data/trading.db*` to reset.
 
+## Paper trading
+
+No real exchange yet — everything runs against the paper venue:
+
+- `apps/server/src/execution/paperAdapter.ts` — `PaperExecutionAdapter`
+  (implements the shared `ExecutionAdapter` interface): instant fills at the
+  market price, 0.1% fee, in-memory open book with netting semantics, plus a
+  `StaticPriceProvider` for fixed paper prices.
+- `apps/server/src/services/walletService.ts` — paper wallet:
+  `deposit` / `withdraw` / `lockFunds` / `unlockFunds`. Every movement updates
+  the account and writes a `transactions` row.
+
+Manual fund injection for testing:
+
+```bash
+curl -X POST http://localhost:3001/api/paper/deposit \
+  -H 'Content-Type: application/json' \
+  -d '{"amount":10000,"description":"initial paper funds"}'
+
+curl -X POST http://localhost:3001/api/paper/withdraw \
+  -H 'Content-Type: application/json' \
+  -d '{"amount":2500}'
+
+curl http://localhost:3001/api/paper/balances
+```
+
 ## TypeScript
 
 Base strict config lives in `tsconfig.base.json` (TypeScript 7.x). Each package

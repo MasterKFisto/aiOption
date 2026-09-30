@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS account (
   mode                 TEXT    NOT NULL DEFAULT 'PAPER',
   equity               REAL    NOT NULL DEFAULT 0,
   cash_balance         REAL    NOT NULL DEFAULT 0,
+  locked_balance       REAL    NOT NULL DEFAULT 0,
   base_currency        TEXT    NOT NULL DEFAULT 'USD',
   fixed_trade_size_usd REAL    NOT NULL DEFAULT 100,
   max_open_positions   INTEGER NOT NULL DEFAULT 5,
@@ -76,10 +77,20 @@ CREATE INDEX IF NOT EXISTS idx_risk_events_triggered_at ON risk_events (triggere
 export function runMigrations(db: Database.Database): void {
   db.exec(SCHEMA);
 
+  // Schema drift fix for databases created before `locked_balance` existed.
+  if (!hasColumn(db, 'account', 'locked_balance')) {
+    db.exec('ALTER TABLE account ADD COLUMN locked_balance REAL NOT NULL DEFAULT 0');
+  }
+
   // Seed the single-row account; INSERT OR IGNORE keeps it idempotent.
   const now = new Date().toISOString();
   db.prepare('INSERT OR IGNORE INTO account (id, created_at, updated_at) VALUES (1, ?, ?)').run(
     now,
     now,
   );
+}
+
+function hasColumn(db: Database.Database, table: string, column: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all() as ReadonlyArray<{ name: string }>;
+  return rows.some((row) => row.name === column);
 }

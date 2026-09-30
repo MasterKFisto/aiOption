@@ -4,6 +4,7 @@ import Fastify from 'fastify';
 import { config } from './config.js';
 import { getDb, initDb } from './db/connection.js';
 import { logger } from './logger.js';
+import { walletRoutes } from './routes/walletRoutes.js';
 
 // Fastify 5 rejects pino *instances* passed via the `logger` option (that one
 // accepts only `boolean` or a pino options object). `loggerInstance` is the
@@ -21,6 +22,9 @@ await app.register(cors, {
 
 // Open the SQLite database and run migrations before serving any traffic.
 initDb();
+
+// Paper wallet management (POST /api/paper/deposit, POST /api/paper/withdraw, ...).
+await app.register(walletRoutes, { prefix: '/api/paper' });
 
 app.get('/api/health', async () => {
   const dbCheck = getDb().prepare<[], { ok: number }>('SELECT 1 AS ok').get();

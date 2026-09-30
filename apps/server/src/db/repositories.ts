@@ -24,6 +24,7 @@ interface AccountRow {
   mode: string;
   equity: number;
   cash_balance: number;
+  locked_balance: number;
   base_currency: string;
   fixed_trade_size_usd: number;
   max_open_positions: number;
@@ -87,6 +88,7 @@ const toAccount = (r: AccountRow): Account => ({
   mode: r.mode as Account['mode'],
   equity: r.equity,
   cashBalance: r.cash_balance,
+  lockedBalance: r.locked_balance,
   baseCurrency: r.base_currency,
   fixedTradeSizeUsd: r.fixed_trade_size_usd,
   maxOpenPositions: r.max_open_positions,
@@ -148,6 +150,7 @@ type AccountBind = {
   mode: Account['mode'] | null;
   equity: number | null;
   cashBalance: number | null;
+  lockedBalance: number | null;
   fixedTradeSizeUsd: number | null;
   maxOpenPositions: number | null;
   lossLimitPercent: number | null;
@@ -171,6 +174,7 @@ export function updateAccount(patch: AccountUpdate): Account {
          mode = COALESCE(@mode, mode),
          equity = COALESCE(@equity, equity),
          cash_balance = COALESCE(@cashBalance, cash_balance),
+         locked_balance = COALESCE(@lockedBalance, locked_balance),
          fixed_trade_size_usd = COALESCE(@fixedTradeSizeUsd, fixed_trade_size_usd),
          max_open_positions = COALESCE(@maxOpenPositions, max_open_positions),
          loss_limit_percent = COALESCE(@lossLimitPercent, loss_limit_percent),
@@ -181,6 +185,7 @@ export function updateAccount(patch: AccountUpdate): Account {
       mode: patch.mode ?? null,
       equity: patch.equity ?? null,
       cashBalance: patch.cashBalance ?? null,
+      lockedBalance: patch.lockedBalance ?? null,
       fixedTradeSizeUsd: patch.fixedTradeSizeUsd ?? null,
       maxOpenPositions: patch.maxOpenPositions ?? null,
       lossLimitPercent: patch.lossLimitPercent ?? null,
