@@ -73,6 +73,20 @@ docker compose start       # start again
 docker compose down        # remove the container (volume pnpm-store is kept)
 ```
 
+## Backend (apps/server)
+
+```bash
+# start the Fastify dev server with hot reload (tsx watch)
+docker compose exec dev pnpm dev:server
+
+# health check
+curl http://localhost:3001/api/health
+```
+
+Config lives in `apps/server/src/config.ts` (Zod-validated env vars, defaults in
+`.env.example`; the `.env` at the repo root is injected into the container via
+`env_file` in `docker-compose.yml`).
+
 ## TypeScript
 
 Base strict config lives in `tsconfig.base.json` (TypeScript 7.x). Each package

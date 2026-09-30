@@ -10,6 +10,7 @@
   },
   "scripts": {
     "dev": "pnpm --recursive --parallel --if-present dev",
+    "dev:server": "pnpm --filter @aioption/server dev",
     "build": "pnpm --recursive --if-present build",
     "typecheck": "pnpm --recursive --if-present typecheck",
     "test": "pnpm --recursive --if-present test",
