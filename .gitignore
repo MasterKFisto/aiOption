@@ -1,16 +1,25 @@
+# Dependencies
 node_modules/
+.pnpm-store/
+
+# Build output
 dist/
 build/
-.next/
 coverage/
+*.tsbuildinfo
+.turbo/
+
+# Environment & secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Logs & OS junk
 *.log
 .DS_Store
-*.tsbuildinfo
-.turbo
-.cache
-prisma/*.db
-prisma/*.db-journal
-dump.rdb
+
+# Runtime data & backups (directories are kept via .gitkeep)
+data/*
+!data/.gitkeep
+backups/*
+!backups/.gitkeep

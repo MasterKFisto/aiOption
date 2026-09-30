@@ -1,63 +1,27 @@
-version: '3.8'
+# Docker-only development environment.
+# The host has no Node/npm/pnpm — everything runs inside the `dev` container.
 
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: ai_options
-    ports:
-      - '5432:5432'
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U app -d ai_options']
-      interval: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - '6379:6379'
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      retries: 5
-
-  api:
+  dev:
     build:
       context: .
-      dockerfile: apps/api/Dockerfile
-    ports:
-      - '3001:3001'
+      dockerfile: Dockerfile
+    image: aioption-dev
+    container_name: aioption-dev
+    working_dir: /app
+    volumes:
+      # Live-mount the repository into the container.
+      - .:/app
+      # Persist the pnpm content-addressable store across container rebuilds,
+      # so `pnpm install` stays fast after `docker compose up --build`.
+      - pnpm-store:/root/.local/share/pnpm
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://app:app@db:5432/ai_options
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET:-change_me_in_production}
-      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@example.com}
-      - TRADING_LOOP_ENABLED=true
-      - PAPER_TRADING=true
-      - LIVE_TRADING_ENABLED=false
-      - CORS_ORIGIN=http://localhost
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
-  web:
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-    ports:
-      - '80:80'
-    depends_on:
-      - api
+      NODE_ENV: development
+    init: true
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    command: ["tail", "-f", "/dev/null"]
 
 volumes:
-  pgdata:
-  redisdata:
+  pnpm-store:
