@@ -62,8 +62,11 @@ interface TransactionRow {
 interface AiDecisionRow {
   id: number;
   symbol: string;
+  signal: string;
   action: string;
   confidence: number;
+  expected_return: number;
+  proposed_trade_size_usd: number;
   rationale: string | null;
   executed: number;
   position_id: number | null;
@@ -126,8 +129,11 @@ const toTransaction = (r: TransactionRow): Transaction => ({
 const toAiDecision = (r: AiDecisionRow): AiDecision => ({
   id: r.id,
   symbol: r.symbol,
+  signal: r.signal as AiDecision['signal'],
   action: r.action as AiDecision['action'],
   confidence: r.confidence,
+  expectedReturn: r.expected_return,
+  proposedTradeSizeUsd: r.proposed_trade_size_usd,
   rationale: r.rationale,
   executed: r.executed === 1,
   positionId: r.position_id,
@@ -289,30 +295,39 @@ export function listTransactions(limit = 100): Transaction[] {
 
 /* ------------------------------- ai decisions ------------------------------ */
 
+type AiDecisionBind = {
+  symbol: string;
+  signal: AiDecision['signal'];
+  action: AiDecision['action'];
+  confidence: number;
+  expectedReturn: number;
+  proposedTradeSizeUsd: number;
+  rationale: string | null;
+  executed: number;
+  positionId: number | null;
+  createdAt: string;
+};
+
 /** Logs an AI signal/decision. */
 export function logAiDecision(input: NewAiDecision): AiDecision {
   const createdAt = now();
-  const executed = input.executed ?? false;
-  const positionId = input.positionId ?? null;
   const result = getDb()
-    .prepare<
-      Omit<NewAiDecision, 'executed' | 'positionId'> & {
-        executed: number;
-        positionId: number | null;
-        createdAt: string;
-      },
-      unknown
-    >(
-      `INSERT INTO ai_decisions (symbol, action, confidence, rationale, executed, position_id, created_at)
-       VALUES (@symbol, @action, @confidence, @rationale, @executed, @positionId, @createdAt)`,
+    .prepare<AiDecisionBind, unknown>(
+      `INSERT INTO ai_decisions
+         (symbol, signal, action, confidence, expected_return, proposed_trade_size_usd, rationale, executed, position_id, created_at)
+       VALUES
+         (@symbol, @signal, @action, @confidence, @expectedReturn, @proposedTradeSizeUsd, @rationale, @executed, @positionId, @createdAt)`,
     )
     .run({
       symbol: input.symbol,
+      signal: input.signal,
       action: input.action,
       confidence: input.confidence,
+      expectedReturn: input.expectedReturn,
+      proposedTradeSizeUsd: input.proposedTradeSizeUsd,
       rationale: input.rationale,
-      executed: executed ? 1 : 0,
-      positionId,
+      executed: (input.executed ?? false) ? 1 : 0,
+      positionId: input.positionId ?? null,
       createdAt,
     });
 

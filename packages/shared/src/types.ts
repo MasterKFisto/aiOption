@@ -89,13 +89,23 @@ export interface Transaction {
   createdAt: string;
 }
 
+/** Market outlook produced by the signal engine. */
+export type MarketSignal = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+
 /** A logged AI signal/decision. */
 export interface AiDecision {
   id: number;
   symbol: string;
+  /** Market outlook from the signal engine. */
+  signal: MarketSignal;
+  /** Suggested trade action derived from the signal. */
   action: AiAction;
   /** Model confidence in the decision, 0..1. */
   confidence: number;
+  /** Expected return over the signal horizon (fraction, e.g. 0.03 = 3%). */
+  expectedReturn: number;
+  /** Proposed trade size in USD, strictly the configured fixed size. */
+  proposedTradeSizeUsd: number;
   rationale: string | null;
   /** Whether the decision was acted upon (resulting in a trade). */
   executed: boolean;

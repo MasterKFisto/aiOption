@@ -15,14 +15,17 @@ export type TradingMode = (typeof TRADING_MODES)[number];
  * empty environment — but bad values fail fast with a clear error.
  */
 const envSchema = z.object({
-  /** PAPER = simulated trading, TESTNET = real venue test network, LIVE = real funds. */
-  MODE: z.enum(TRADING_MODES).default('PAPER'),
+  /**
+   * PAPER = simulated trading, TESTNET = real venue test network, LIVE = real funds.
+   * Named TRADING_MODE (not MODE) because tooling like Vitest/Vite reserves MODE.
+   */
+  TRADING_MODE: z.enum(TRADING_MODES).default('PAPER'),
   /** SQLite trading database file path (absolute, or relative to the repository root). */
   DB_PATH: z.string().trim().min(1).default('data/trading.db'),
   /** Base currency used for balances and P/L accounting. */
-  BASE_CURRENCY: z.string().trim().min(1).max(16).default('USD'),
+  BASE_CURRENCY: z.string().trim().min(1).max(16).default('USDC'),
   /** Fixed trade size in USD for each option position. */
-  FIXED_TRADE_SIZE_USD: z.coerce.number().positive().default(100),
+  FIXED_TRADE_SIZE_USD: z.coerce.number().positive().default(10),
   /** Maximum number of concurrently open positions. */
   MAX_OPEN_POSITIONS: z.coerce.number().int().min(1).default(5),
   /** Daily loss limit as a percentage of account equity. */
@@ -50,7 +53,7 @@ const fromRepoRoot = (p: string): string => (path.isAbsolute(p) ? p : path.resol
 
 /** Validated, typed runtime configuration. */
 export const config = {
-  MODE: env.MODE,
+  MODE: env.TRADING_MODE,
   DB_PATH: fromRepoRoot(env.DB_PATH),
   BASE_CURRENCY: env.BASE_CURRENCY,
   FIXED_TRADE_SIZE_USD: env.FIXED_TRADE_SIZE_USD,

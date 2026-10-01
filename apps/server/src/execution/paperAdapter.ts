@@ -49,12 +49,14 @@ const DEFAULT_FEE_RATE = 0.001;
 export class PaperExecutionAdapter implements ExecutionAdapter {
   private readonly openBook = new Map<string, ExternalPosition>();
   private readonly feeRate: number;
+  private readonly feeCurrency: string;
 
   constructor(
     private readonly priceProvider: MarketPriceProvider,
-    options: { feeRate?: number } = {},
+    options: { feeRate?: number; feeCurrency?: string } = {},
   ) {
     this.feeRate = options.feeRate ?? DEFAULT_FEE_RATE;
+    this.feeCurrency = options.feeCurrency ?? 'USDC';
   }
 
   async placeOrder(params: PlaceOrderParams): Promise<OrderResult> {
@@ -65,7 +67,7 @@ export class PaperExecutionAdapter implements ExecutionAdapter {
     }
 
     const price = params.price ?? (await this.priceProvider.getPrice(params.symbol));
-    if (!Number.isFinite(price) || price < 0) {
+    if (!Number.isFinite(price) || price <= 0) {
       return this.rejected(params, `no valid market price for ${params.symbol}`, filledAt);
     }
 
@@ -84,7 +86,7 @@ export class PaperExecutionAdapter implements ExecutionAdapter {
       filledQuantity: params.quantity,
       averagePrice: price,
       fee,
-      feeCurrency: 'USD',
+      feeCurrency: this.feeCurrency,
       filledAt,
     };
   }
@@ -108,7 +110,7 @@ export class PaperExecutionAdapter implements ExecutionAdapter {
       filledQuantity: 0,
       averagePrice: 0,
       fee: 0,
-      feeCurrency: 'USD',
+      feeCurrency: this.feeCurrency,
       message,
       filledAt,
     };

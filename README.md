@@ -141,6 +141,40 @@ curl -X POST http://localhost:3001/api/paper/withdraw \
 curl http://localhost:3001/api/paper/balances
 ```
 
+## Market data & signals (MVP)
+
+Deterministic, simulated market data and a rule-based signal engine:
+
+- `apps/server/src/market/marketDataService.ts` — `SimulatedMarketDataService`:
+  seeded GBM hourly OHLCV candles + tickers for BTC/USDT and ETH/USDT
+  (reproducible across runs), and `estimateVolatility()` (per-candle +
+  annualized).
+- `apps/server/src/strategy/signalEngine.ts` — rule-based `SignalEngine`:
+  momentum over the last N candles; positive momentum + volatility below
+  threshold → BULLISH, negative → BEARISH, otherwise NEUTRAL. Every decision
+  (signal, confidence, expected return, proposed trade size — strictly
+  `FIXED_TRADE_SIZE_USD` = $10 USDC) is persisted to `ai_decisions`.
+
+```ts
+// usage inside the container (e.g. via `pnpm dev:server` / scripts)
+const market = new SimulatedMarketDataService();
+const engine = new SignalEngine(market);
+const decisions = engine.generateAll(); // one AiDecision per symbol, saved to the DB
+```
+
+## Tests
+
+Vitest unit + integration tests (all inside the dev container, temp SQLite DBs):
+
+```bash
+docker compose exec dev pnpm test                      # run once (recursive)
+docker compose exec dev pnpm --filter @aioption/server test
+docker compose exec dev pnpm --filter @aioption/server test:watch   # watch mode
+```
+
+Test files live in `apps/server/test/` and are strictly typechecked via
+`tsconfig.test.json` (part of `pnpm typecheck`).
+
 ## TypeScript
 
 Base strict config lives in `tsconfig.base.json` (TypeScript 7.x). Each package

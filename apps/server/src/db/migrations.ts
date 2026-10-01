@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS account (
   equity               REAL    NOT NULL DEFAULT 0,
   cash_balance         REAL    NOT NULL DEFAULT 0,
   locked_balance       REAL    NOT NULL DEFAULT 0,
-  base_currency        TEXT    NOT NULL DEFAULT 'USD',
-  fixed_trade_size_usd REAL    NOT NULL DEFAULT 100,
+  base_currency        TEXT    NOT NULL DEFAULT 'USDC',
+  fixed_trade_size_usd REAL    NOT NULL DEFAULT 10,
   max_open_positions   INTEGER NOT NULL DEFAULT 5,
   loss_limit_percent   REAL    NOT NULL DEFAULT 5,
   created_at           TEXT    NOT NULL,
@@ -51,14 +51,17 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions (created_at);
 
 CREATE TABLE IF NOT EXISTS ai_decisions (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  symbol      TEXT    NOT NULL,
-  action      TEXT    NOT NULL,
-  confidence  REAL    NOT NULL,
-  rationale   TEXT,
-  executed    INTEGER NOT NULL DEFAULT 0 CHECK (executed IN (0, 1)),
-  position_id INTEGER REFERENCES positions (id) ON DELETE SET NULL,
-  created_at  TEXT    NOT NULL
+  id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+  symbol                  TEXT    NOT NULL,
+  signal                  TEXT    NOT NULL DEFAULT 'NEUTRAL',
+  action                  TEXT    NOT NULL,
+  confidence              REAL    NOT NULL,
+  expected_return         REAL    NOT NULL DEFAULT 0,
+  proposed_trade_size_usd REAL    NOT NULL DEFAULT 0,
+  rationale               TEXT,
+  executed                INTEGER NOT NULL DEFAULT 0 CHECK (executed IN (0, 1)),
+  position_id             INTEGER REFERENCES positions (id) ON DELETE SET NULL,
+  created_at              TEXT    NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_decisions_created_at ON ai_decisions (created_at);
@@ -80,6 +83,17 @@ export function runMigrations(db: Database.Database): void {
   // Schema drift fix for databases created before `locked_balance` existed.
   if (!hasColumn(db, 'account', 'locked_balance')) {
     db.exec('ALTER TABLE account ADD COLUMN locked_balance REAL NOT NULL DEFAULT 0');
+  }
+
+  // Schema drift fixes for databases created before the signal-engine columns existed.
+  if (!hasColumn(db, 'ai_decisions', 'signal')) {
+    db.exec("ALTER TABLE ai_decisions ADD COLUMN signal TEXT NOT NULL DEFAULT 'NEUTRAL'");
+  }
+  if (!hasColumn(db, 'ai_decisions', 'expected_return')) {
+    db.exec('ALTER TABLE ai_decisions ADD COLUMN expected_return REAL NOT NULL DEFAULT 0');
+  }
+  if (!hasColumn(db, 'ai_decisions', 'proposed_trade_size_usd')) {
+    db.exec('ALTER TABLE ai_decisions ADD COLUMN proposed_trade_size_usd REAL NOT NULL DEFAULT 0');
   }
 
   // Seed the single-row account; INSERT OR IGNORE keeps it idempotent.
