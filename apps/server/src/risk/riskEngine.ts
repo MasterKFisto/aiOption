@@ -9,6 +9,7 @@ import {
   updateAccount,
   updatePosition,
 } from '../db/repositories.js';
+import { publishEvent } from '../events/eventBus.js';
 import type { WalletService } from '../services/walletService.js';
 
 export interface RiskEvaluation {
@@ -38,6 +39,21 @@ export class RiskEngine {
     }
     if (decision.signal === 'NEUTRAL') {
       return { approved: false, reason: 'neutral signal — no trade' };
+    }
+    if (decision.proposedTradeSizeUsd > account.maxOptionStakeUsd) {
+      logRiskEvent({
+        type: 'MAX_STAKE_LIMIT_REJECTED',
+        message:
+          `trade rejected: proposed size ${decision.proposedTradeSizeUsd} exceeds the ` +
+          `${account.maxOptionStakeUsd} USDC maximum stake`,
+        equityAtTrigger: account.equity,
+      });
+      return {
+        approved: false,
+        reason:
+          `proposed trade size ${decision.proposedTradeSizeUsd} exceeds the ` +
+          `${account.maxOptionStakeUsd} USDC maximum stake`,
+      };
     }
     if (decision.proposedTradeSizeUsd !== config.FIXED_TRADE_SIZE_USD) {
       return {
@@ -85,7 +101,7 @@ export class RiskEngine {
 
     this.closeAllOpenPositions();
     updateAccount({ tradingEnabled: false });
-    logRiskEvent({
+    const event = logRiskEvent({
       type: 'LOSS_LIMIT_DAILY',
       message:
         `Loss limit triggered: equity ${roundMoney(account.equity)} ${account.baseCurrency} <= ` +
@@ -93,6 +109,14 @@ export class RiskEngine {
         `(${account.lossLimitPercent}% of starting equity ${roundMoney(account.startingEquity)})`,
       equityAtTrigger: account.equity,
     });
+    if (account.lossLimitPercent === 40) {
+      logRiskEvent({
+        type: 'DAILY_LOSS_LIMIT_40_PERCENT_TRIGGERED',
+        message: 'daily loss limit of 40% reached — trading halted',
+        equityAtTrigger: account.equity,
+      });
+    }
+    publishEvent('risk', event);
     return { triggered: true };
   }
 
@@ -109,6 +133,7 @@ export class RiskEngine {
         roundMoney(position.quantity * position.entryPremium),
         `emergency close of ${position.symbol}`,
       );
+      publishEvent('trade', { action: 'CLOSED', position: { ...position, status: 'CLOSED', closedAt } });
     }
   }
 }

@@ -77,9 +77,16 @@ describe('RiskEngine.evaluate', () => {
     expect(verdict.reason).toMatch(/neutral/);
   });
 
-  it('rejects trade sizes that do not match the fixed limit', () => {
+  it('rejects trade sizes that exceed the maximum stake', () => {
     repo.updateAccount({ tradingEnabled: true, equity: 1000, startingEquity: 1000 });
     const verdict = risk.evaluate(decision({ proposedTradeSizeUsd: 999 }));
+    expect(verdict.approved).toBe(false);
+    expect(verdict.reason).toMatch(/exceeds the 100 USDC maximum stake/);
+  });
+
+  it('rejects trade sizes that do not match the fixed limit', () => {
+    repo.updateAccount({ tradingEnabled: true, equity: 1000, startingEquity: 1000 });
+    const verdict = risk.evaluate(decision({ proposedTradeSizeUsd: 20 }));
     expect(verdict.approved).toBe(false);
     expect(verdict.reason).toMatch(/does not match the fixed limit/);
   });

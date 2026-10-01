@@ -1,13 +1,32 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 
+import { binaryRoutes } from './binary/binaryRoutes.js';
+import { binaryService } from './binary/binaryService.js';
+import { getBinarySessionService } from './binary/binarySessionService.js';
+import { startBinarySettlement, stopBinarySettlement } from './binary/binarySettlement.js';
+import { getAiBinaryService } from './binary-ai/binaryAiService.js';
+import { binaryAiRoutes } from './binary-ai/binaryAiRoutes.js';
+import { startAiBinaryScheduler, stopAiBinaryScheduler } from './binary-ai/binaryAiScheduler.js';
+import { optionService } from './options/optionService.js';
+import { optionRoutes } from './options/optionRoutes.js';
+import { startOptionSettlement, stopOptionSettlement } from './options/optionSettlement.js';
 import { config } from './config.js';
 import { getDb, initDb } from './db/connection.js';
 import { getAccount } from './db/repositories.js';
 import { logger } from './logger.js';
+import { liveMarket } from './market/liveMarketDataService.js';
+import { dashboardRoutes } from './routes/dashboardRoutes.js';
+import { depositRoutes } from './routes/depositRoutes.js';
+import { eventRoutes } from './routes/eventRoutes.js';
+import { marketRoutes } from './routes/marketRoutes.js';
 import { tradingRoutes } from './routes/tradingRoutes.js';
+import { tronRoutes } from './routes/tronRoutes.js';
+import { walletRecordsRoutes } from './routes/walletRecordsRoutes.js';
 import { walletRoutes } from './routes/walletRoutes.js';
+import { withdrawalRoutes } from './routes/withdrawalRoutes.js';
 import { tradingLoop } from './scheduler/tradingLoop.js';
+import { startDepositSync, stopDepositSync } from './services/depositSyncService.js';
 
 /**
  * Builds the Fastify app: logger, CORS, DB init, routes, health check, and the
@@ -25,10 +44,19 @@ export async function buildApp() {
     loggerInstance: logger,
   });
 
-  // CORS: reflect the request origin during development;
-  // tighten this per MODE once the frontend exists.
+  // CORS: only allow the configured browser origins (localhost frontend by
+  // default). '*' keeps the previous reflect-any-origin behavior if needed.
+  const corsOrigin = config.CORS_ORIGINS.includes('*') ? true : config.CORS_ORIGINS;
   await app.register(cors, {
-    origin: true,
+    origin: corsOrigin,
+  });
+
+  // Baseline security headers on every response (API + SSE).
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'DENY');
+    reply.header('Referrer-Policy', 'no-referrer');
+    reply.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   });
 
   // Open the SQLite database and run migrations before serving any traffic.
@@ -39,6 +67,50 @@ export async function buildApp() {
 
   // Trading loop control + risk settings.
   await app.register(tradingRoutes, { prefix: '/api/trading' });
+
+  // Read-only dashboard data for the web frontend.
+  await app.register(dashboardRoutes, { prefix: '/api' });
+
+  // Live market data (public source) for the dashboard.
+  await app.register(marketRoutes, { prefix: '/api/market' });
+
+  // Tron USDC (TRC20) deposits and withdrawals.
+  await app.register(depositRoutes, { prefix: '/api' });
+  await app.register(withdrawalRoutes, { prefix: '/api' });
+
+  // Server-sent events for near-real-time UI updates.
+  await app.register(eventRoutes, { prefix: '/api' });
+
+  // Binary options (internal-ledger settlement).
+  await app.register(binaryRoutes, { prefix: '/api' });
+
+  // AI binary trading (signals + optional auto-execution of binary contracts).
+  await app.register(binaryAiRoutes, { prefix: '/api' });
+
+  // Classic short-duration options (Phase 6.4).
+  await app.register(optionRoutes, { prefix: '/api' });
+
+  // Tron status/health/fee endpoints + unified wallet records (Phase 6.4).
+  await app.register(tronRoutes, { prefix: '/api' });
+  await app.register(walletRecordsRoutes, { prefix: '/api' });
+
+  // Background loops: live market polling + Tron deposit sync.
+  liveMarket.start();
+  startDepositSync();
+  startBinarySettlement(binaryService);
+  const binarySession = getBinarySessionService();
+  const aiBinary = getAiBinaryService();
+  startAiBinaryScheduler(aiBinary);
+  startOptionSettlement(optionService);
+  app.addHook('onClose', async () => {
+    liveMarket.stop();
+    stopDepositSync();
+    stopBinarySettlement();
+    stopAiBinaryScheduler();
+    stopOptionSettlement();
+    binarySession.dispose();
+    aiBinary.dispose();
+  });
 
   // Requirement: start the trading loop on boot only if trading is enabled in the DB.
   if (getAccount().tradingEnabled) {

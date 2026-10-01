@@ -88,7 +88,14 @@ describe('trading routes', () => {
       payload: { maxOpenPositions: 3, lossLimitPercent: 8 },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ maxOpenPositions: 3, lossLimitPercent: 8, fixedTradeSizeUsd: 10 });
+    expect(res.json()).toEqual({
+      maxOpenPositions: 3,
+      lossLimitPercent: 8,
+      fixedTradeSizeUsd: 10,
+      postTradePromptEnabled: true,
+      maxOptionStakeUsd: 100,
+      optionDefaultDurationSeconds: 300,
+    });
 
     const account = repo.getAccount();
     expect(account.maxOpenPositions).toBe(3);
@@ -109,7 +116,14 @@ describe('trading routes', () => {
       payload: { lossLimitPercent: 12 },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ maxOpenPositions: 5, lossLimitPercent: 12, fixedTradeSizeUsd: 10 });
+    expect(res.json()).toEqual({
+      maxOpenPositions: 5,
+      lossLimitPercent: 12,
+      fixedTradeSizeUsd: 10,
+      postTradePromptEnabled: true,
+      maxOptionStakeUsd: 100,
+      optionDefaultDurationSeconds: 300,
+    });
 
     const account = repo.getAccount();
     expect(account.maxOpenPositions).toBe(5); // untouched

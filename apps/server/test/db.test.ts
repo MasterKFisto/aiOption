@@ -38,7 +38,15 @@ describe('connection + migrations', () => {
       .all() as ReadonlyArray<{ name: string }>;
     const names = rows.map((r) => r.name);
     expect(names).toEqual(
-      expect.arrayContaining(['account', 'positions', 'transactions', 'ai_decisions', 'risk_events']),
+      expect.arrayContaining([
+        'account',
+        'positions',
+        'transactions',
+        'ai_decisions',
+        'risk_events',
+        'binary_contracts',
+        'binary_events',
+      ]),
     );
   });
 

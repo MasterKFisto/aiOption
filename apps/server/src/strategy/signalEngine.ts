@@ -2,6 +2,7 @@ import type { AiAction, AiDecision, Candle, MarketSignal, Ticker, VolatilityEsti
 
 import { config } from '../config.js';
 import { logAiDecision } from '../db/repositories.js';
+import { publishEvent } from '../events/eventBus.js';
 
 /** Minimal market-data surface the signal engine depends on (easy to stub in tests). */
 export interface MarketDataProvider {
@@ -101,7 +102,7 @@ export class SignalEngine {
         : `${signal}: momentum ${momentumPercent.toFixed(2)}% over ${this.options.momentumPeriod} candles, ` +
           `volatility ${volPercent.toFixed(1)}% (below ${this.options.volatilityThreshold}%)`;
 
-    return logAiDecision({
+    const decision = logAiDecision({
       symbol,
       signal,
       action: SIGNAL_TO_ACTION[signal],
@@ -112,6 +113,8 @@ export class SignalEngine {
       executed: false,
       positionId: null,
     });
+    publishEvent('decision', decision);
+    return decision;
   }
 
   /** Evaluates every configured symbol. */

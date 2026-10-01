@@ -2,6 +2,7 @@ import { roundMoney } from '@aioption/shared';
 import type { AiDecision, OptionSide, OrderResult, PlaceOrderParams, Ticker } from '@aioption/shared';
 
 import { createPosition, getAccount, markAiDecisionExecuted } from '../db/repositories.js';
+import { publishEvent } from '../events/eventBus.js';
 import { PaperExecutionAdapter, StaticPriceProvider } from '../execution/paperAdapter.js';
 import { logger } from '../logger.js';
 import { SimulatedMarketDataService } from '../market/marketDataService.js';
@@ -170,6 +171,7 @@ export class TradingLoop {
             openedAt: order.filledAt,
           });
           markAiDecisionExecuted(decision.id, position.id);
+          publishEvent('trade', { action: 'OPENED', position });
 
           result.executed.push({
             symbol,

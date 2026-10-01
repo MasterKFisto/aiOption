@@ -22,7 +22,20 @@ export type TransactionType =
   | 'TRADE_SELL'
   | 'PREMIUM_CREDIT'
   | 'FEE'
-  | 'ADJUSTMENT';
+  | 'ADJUSTMENT'
+  | 'BINARY_STAKE_LOCKED'
+  | 'BINARY_WIN'
+  | 'BINARY_LOSS'
+  | 'BINARY_REFUND'
+  | 'BINARY_FEE'
+  | 'AI_BINARY_STAKE_LOCKED'
+  | 'AI_BINARY_WIN'
+  | 'AI_BINARY_LOSS'
+  | 'AI_BINARY_REFUND'
+  | 'OPTION_STAKE_LOCKED'
+  | 'OPTION_SETTLE_WIN'
+  | 'OPTION_SETTLE_LOSS'
+  | 'OPTION_SETTLE_REFUND';
 
 /** Action recommended (and possibly executed) by the AI engine. */
 export type AiAction = 'OPEN_CALL' | 'OPEN_PUT' | 'CLOSE' | 'HOLD' | 'NO_TRADE';
@@ -32,7 +45,35 @@ export type RiskEventType =
   | 'LOSS_LIMIT_DAILY'
   | 'LOSS_LIMIT_WEEKLY'
   | 'MAX_OPEN_POSITIONS'
-  | 'EQUITY_LOW';
+  | 'EQUITY_LOW'
+  | 'BINARY_CONTRACT_REJECTED'
+  | 'BINARY_LOSS_LIMIT_BLOCK'
+  | 'BINARY_MARKET_DATA_STALE'
+  | 'BINARY_SETTLEMENT_ERROR'
+  | 'BINARY_MAX_OPEN_CONTRACTS_REACHED'
+  | 'AI_BINARY_SIGNAL_GENERATED'
+  | 'AI_BINARY_TRADE_EXECUTED'
+  | 'AI_BINARY_TRADE_REJECTED'
+  | 'AI_BINARY_STOPPED_BY_USER'
+  | 'AI_BINARY_STOPPED_BY_LOSS_LIMIT'
+  | 'AI_BINARY_STOPPED_BY_DAILY_LOSS_LIMIT'
+  | 'AI_BINARY_STOPPED_BY_CONSECUTIVE_LOSSES'
+  | 'AI_BINARY_STOPPED_BY_SESSION_LOSS_LIMIT'
+  | 'AI_BINARY_MARKET_DATA_STALE'
+  | 'AI_BINARY_MAX_TRADES_PER_HOUR_REACHED'
+  | 'AI_BINARY_STOPPED_BY_PROFIT_TARGET'
+  | 'AI_BINARY_PROFIT_TARGET_REACHED'
+  | 'AI_BINARY_DAILY_PROFIT_LIMIT_REACHED'
+  | 'OPTION_EXPIRED_SETTLED'
+  | 'OPTION_EXPIRED_REFUNDED'
+  | 'OPTION_SETTLEMENT_PRICE_STALE'
+  | 'MAX_STAKE_LIMIT_REJECTED'
+  | 'DAILY_LOSS_LIMIT_40_PERCENT_TRIGGERED'
+  | 'TRON_FEE_INSUFFICIENT_WITHDRAWAL_BLOCKED'
+  | 'BINARY_SESSION_GAIN_LIMIT_REACHED'
+  | 'BINARY_SESSION_GAIN_LIMIT_BLOCK'
+  | 'BINARY_SESSION_RESET'
+  | 'AI_BINARY_STOPPED_BY_SESSION_GAIN_LIMIT';
 
 /** Single-row account record (always id = 1): equity, balances, limits, settings. */
 export interface Account {
@@ -49,10 +90,22 @@ export interface Account {
   maxOpenPositions: number;
   /** Daily loss limit as a percentage of equity. */
   lossLimitPercent: number;
+  /** Maximum stake for a single classic option, in USD. */
+  maxOptionStakeUsd: number;
+  /** Default classic-option duration in seconds. */
+  optionDefaultDurationSeconds: number;
+  /** Binary session gain limit enabled flag. */
+  binarySessionGainLimitEnabled: boolean;
+  /** Binary max session gain in USDC. */
+  binaryMaxSessionGainUsdc: number;
+  /** Optional binary session gain limit as % of starting equity. */
+  binaryMaxSessionGainPercent: number;
   /** Whether the trading loop is allowed to execute trades. */
   tradingEnabled: boolean;
   /** Equity snapshot taken when trading was enabled — the loss-limit baseline. */
   startingEquity: number;
+  /** Whether the UI shows the post-trade keep/withdraw prompt (default true). */
+  postTradePromptEnabled: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +131,33 @@ export interface Position {
   openedAt: string;
   closedAt: string | null;
   createdAt: string;
+  /** Contract duration in seconds. */
+  durationSeconds: number | null;
+  /** Exact expiry timestamp (ISO). */
+  expiresAt: string | null;
+  /** Timestamp when settlement happened (ISO). */
+  settledAt: string | null;
+  /** Market price used for settlement. */
+  settlementPrice: number | null;
+  /** OPEN | SETTLING | SETTLED | REFUNDED | ERROR | CANCELLED. */
+  settlementStatus: string | null;
+  /** Human-readable settlement explanation. */
+  settlementReason: string | null;
+  /** Who opened the position: MANUAL | AI. */
+  source: string;
+  /* ---- computed by the API (not stored) ---- */
+  /** Total stake locked (entry premium × quantity), in USD. */
+  stakeUsd?: number;
+  /** Seconds until expiry (0 when expired/settled). */
+  secondsRemaining?: number;
+  /** Latest market price of the underlying. */
+  currentPrice?: number;
+  /** Mark-to-market PnL of an open position, in USD. */
+  unrealizedPnl?: number;
+  /** Potential profit if the option wins, in USD. */
+  potentialProfitUsd?: number;
+  /** Potential loss (the stake) if the option loses, in USD. */
+  potentialLossUsd?: number;
 }
 
 /** A wallet movement (deposit, withdrawal, trade settlement, fee…). */
@@ -128,7 +208,131 @@ export interface RiskEvent {
   triggeredAt: string;
 }
 
-/* ------------------------- Repository input types ------------------------- */
+/** Dashboard summary: account state + PnL aggregates + loop status. */
+export interface AccountSummary {
+  account: Account;
+  /** Sum of realized PnL across CLOSED positions, in USD. */
+  realizedPnl: number;
+  /** Realized PnL from settled binary contracts, in USD. */
+  binaryNetPnl: number;
+  /** Mark-to-market PnL of OPEN positions (0 while no pricing model exists). */
+  unrealizedPnl: number;
+  /** Whether the trading loop scheduler is currently running. */
+  loopRunning: boolean;
+  /** Daily loss limit as configured (%). */
+  dailyLossLimitPercent: number;
+  /** USD headroom between current equity and the loss floor. */
+  dailyLossRemainingUsd: number;
+  /** Equity level at which the daily loss limit triggers. */
+  lossLimitFloorUsd: number;
+  /** Combined binary session net gain (manual + AI), in USD. */
+  binarySessionGainUsd: number;
+  /** Configured binary session gain limit in USDC (0 = disabled). */
+  binarySessionGainLimitUsd: number;
+  /** USD remaining until the binary session gain limit. */
+  binarySessionGainRemainingUsd: number;
+  /** Whether the binary session gain limit has been reached. */
+  binarySessionGainLimitReached: boolean;
+  /** Latest AI binary session profit, in USD. */
+  aiBinarySessionProfitUsd: number;
+}
+
+/* ------------------------------ Tron transfers ---------------------------- */
+
+/** Tron network mode. */
+export type TronMode = 'SIMULATED' | 'SHASTA' | 'NILE' | 'MAINNET';
+
+export type DepositStatus =
+  | 'DETECTED'
+  | 'CONFIRMING'
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'CREDITED'
+  | 'IGNORED'
+  | 'FAILED';
+
+export type WithdrawalStatus =
+  | 'REQUESTED'
+  | 'PENDING_FEE'
+  | 'APPROVED'
+  | 'BROADCAST'
+  | 'CONFIRMED'
+  | 'FAILED'
+  | 'DISABLED'
+  | 'SIMULATED';
+
+/** A USDC (TRC20) deposit credited to the wallet. */
+export interface Deposit {
+  id: number;
+  network: string;
+  asset: string;
+  tokenStandard: string;
+  amount: number;
+  fromAddress: string | null;
+  txid: string | null;
+  status: DepositStatus;
+  confirmations: number;
+  createdAt: string;
+  creditedAt: string | null;
+  notes: string | null;
+}
+
+/** A USDC (TRC20) withdrawal from the wallet. */
+export interface Withdrawal {
+  id: number;
+  network: string;
+  asset: string;
+  tokenStandard: string;
+  amount: number;
+  destinationAddress: string;
+  status: WithdrawalStatus;
+  txid: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+  notes: string | null;
+  feeEstimateTrx: number | null;
+  feeEstimateUsd: number | null;
+  feePayer: string | null;
+  feeStatus: string | null;
+  feeNotes: string | null;
+}
+
+/** Static deposit information for the UI. */
+export interface DepositInfo {
+  address: string;
+  network: 'TRON';
+  asset: 'USDC';
+  tokenStandard: 'TRC20';
+  tronMode: TronMode;
+  liveWithdrawalsEnabled: boolean;
+  requiredConfirmations: number;
+  lastSyncedAt: string | null;
+}
+
+/* ------------------------------- SSE events ------------------------------- */
+
+export type ApiEventType =
+  | 'account'
+  | 'decision'
+  | 'trade'
+  | 'risk'
+  | 'deposit'
+  | 'withdrawal'
+  | 'binary'
+  | 'ai-binary'
+  | 'tron'
+  | 'wallet'
+  | 'options';
+
+/** Server-sent event pushed to the frontend. */
+export interface ApiEvent {
+  type: ApiEventType;
+  payload: unknown;
+  timestamp: string;
+}
+
+/** Repository input types */
 
 export type AccountUpdate = Partial<
   Pick<
@@ -140,14 +344,51 @@ export type AccountUpdate = Partial<
     | 'fixedTradeSizeUsd'
     | 'maxOpenPositions'
     | 'lossLimitPercent'
+    | 'maxOptionStakeUsd'
+    | 'optionDefaultDurationSeconds'
+    | 'binarySessionGainLimitEnabled'
+    | 'binaryMaxSessionGainUsdc'
+    | 'binaryMaxSessionGainPercent'
     | 'tradingEnabled'
     | 'startingEquity'
+    | 'postTradePromptEnabled'
   >
 >;
 
-export type NewPosition = Omit<Position, 'id' | 'status' | 'exitPremium' | 'realizedPnl' | 'closedAt' | 'createdAt'>;
+export type NewPosition = Omit<
+  Position,
+  | 'id'
+  | 'status'
+  | 'exitPremium'
+  | 'realizedPnl'
+  | 'closedAt'
+  | 'createdAt'
+  | 'durationSeconds'
+  | 'expiresAt'
+  | 'settledAt'
+  | 'settlementPrice'
+  | 'settlementStatus'
+  | 'settlementReason'
+  | 'source'
+> & {
+  durationSeconds?: number | null;
+  expiresAt?: string | null;
+  source?: string;
+};
 
-export type PositionUpdate = Partial<Pick<Position, 'status' | 'exitPremium' | 'realizedPnl' | 'closedAt'>>;
+export type PositionUpdate = Partial<
+  Pick<
+    Position,
+    | 'status'
+    | 'exitPremium'
+    | 'realizedPnl'
+    | 'closedAt'
+    | 'settledAt'
+    | 'settlementPrice'
+    | 'settlementStatus'
+    | 'settlementReason'
+  >
+>;
 
 export type NewTransaction = Omit<Transaction, 'id' | 'createdAt'>;
 
@@ -157,3 +398,153 @@ export type NewAiDecision = Omit<AiDecision, 'id' | 'createdAt' | 'executed' | '
 };
 
 export type NewRiskEvent = Omit<RiskEvent, 'id' | 'triggeredAt'>;
+
+/* ---------------------------- Phase 6.4 types ------------------------------ */
+
+/** Classic-option limits and allowed durations. */
+export interface OptionConfig {
+  minStakeUsd: number;
+  maxStakeUsd: number;
+  defaultStakeUsd: number;
+  allowedDurationsSeconds: number[];
+  defaultDurationSeconds: number;
+  maxDurationSeconds: number;
+}
+
+export type TronConnectionStatus = 'CONNECTED' | 'DEGRADED' | 'DISCONNECTED' | 'NOT_CONFIGURED';
+export type TronReadiness = 'READY_TO_TRADE' | 'TRADE_BLOCKED' | 'WITHDRAWAL_BLOCKED' | 'FEE_RESOURCE_LOW' | 'CONFIGURATION_MISSING';
+
+/** Tron network status for the UI indicator + modal. */
+export interface TronStatus {
+  mode: TronMode;
+  networkName: string;
+  connectionStatus: TronConnectionStatus;
+  readyToTrade: boolean;
+  readiness: TronReadiness;
+  depositsEnabled: boolean;
+  withdrawalsEnabled: boolean;
+  liveWithdrawalsEnabled: boolean;
+  depositAddress: string;
+  hotWalletAddress: string;
+  usdcContractAddress: string;
+  requiredConfirmations: number;
+  trxBalance: number;
+  energyAvailable: number;
+  bandwidthAvailable: number;
+  lowFeeResource: boolean;
+  lastCheckedAt: string | null;
+  warnings: string[];
+}
+
+/** Estimated network fee for a Tron USDC (TRC20) withdrawal. */
+export interface TronFeeEstimate {
+  network: 'TRON';
+  asset: 'USDC';
+  tokenStandard: 'TRC20';
+  estimatedFeeTrx: number;
+  estimatedFeeUsd: number;
+  feePayer: 'HOT_WALLET' | 'DEDUCT_FROM_WITHDRAWAL';
+  energyRequired: number;
+  bandwidthRequired: number;
+  hotWalletTrxBalance: number;
+  hotWalletEnergyAvailable: number;
+  sufficientFeeResources: boolean;
+  warnings: string[];
+}
+
+export type WalletRecordKind = 'DEPOSIT' | 'WITHDRAWAL' | 'TRADE' | 'FEE' | 'REFUND' | 'FEE_DEPOSIT';
+
+/** Unified wallet record for the Wallet Records page. */
+export interface WalletRecord {
+  id: string;
+  kind: WalletRecordKind;
+  time: string;
+  type: string;
+  amount: number;
+  asset: string;
+  network: string | null;
+  status: string;
+  reference: string | null;
+  txid: string | null;
+  destinationAddress: string | null;
+  depositAddress: string | null;
+  feeEstimateTrx: number | null;
+  feeEstimateUsd: number | null;
+  feePaidBy: string | null;
+  notes: string | null;
+  explorerUrl: string | null;
+}
+
+export interface WalletRecordsSummary {
+  availableBalance: number;
+  lockedBalance: number;
+  totalEquity: number;
+  pendingWithdrawals: number;
+  pendingDeposits: number;
+  hotWalletTrxBalance: number;
+  feeResourcesSufficient: boolean;
+}
+
+/* ----------------------------- Phase 6.5 types ------------------------------ */
+
+/** Binary options session gain-limit stats (manual + AI combined). */
+export interface BinarySessionStats {
+  sessionStartedAt: string;
+  manualNetGain: number;
+  aiNetGain: number;
+  combinedNetGain: number;
+  wins: number;
+  losses: number;
+  refunds: number;
+  gainLimitEnabled: boolean;
+  maxSessionGainUsdc: number;
+  maxSessionGainPercent: number;
+  remainingSessionGain: number;
+  gainLimitReached: boolean;
+  gainLimitReason: string | null;
+}
+
+export interface BinarySessionSettingsUpdate {
+  gainLimitEnabled?: boolean;
+  maxSessionGainUsdc?: number;
+  maxSessionGainPercent?: number;
+}
+
+/** TRX fee-wallet deposit info for the UI. */
+export interface TrxFeeDepositInfo {
+  feeWalletAddress: string;
+  sameAddressAsDeposit: boolean;
+  asset: 'TRX';
+  network: 'TRON';
+  purpose: string;
+  acceptTrxDeposits: boolean;
+  requiredConfirmations: number;
+  warning: string;
+}
+
+export interface TrxFeeStatus {
+  feeWalletAddress: string;
+  trxBalance: number;
+  energyAvailable: number;
+  bandwidthAvailable: number;
+  minTrxFeeReserve: number;
+  sufficientFeeReserve: boolean;
+  estimatedWithdrawalsSupported: number;
+  lastCheckedAt: string | null;
+  warnings: string[];
+}
+
+export interface TrxFeeDeposit {
+  id: number;
+  network: string;
+  asset: string;
+  amountTrx: number;
+  fromAddress: string | null;
+  txid: string | null;
+  status: 'DETECTED' | 'CONFIRMING' | 'CONFIRMED' | 'CREDITED' | 'FAILED';
+  confirmations: number;
+  createdAt: string;
+  creditedAt: string | null;
+  notes: string | null;
+}
+

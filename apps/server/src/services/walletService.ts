@@ -2,6 +2,7 @@ import { roundMoney } from '@aioption/shared';
 import type { Account, Transaction } from '@aioption/shared';
 
 import { getAccount, logTransaction, updateAccount } from '../db/repositories.js';
+import { publishEvent } from '../events/eventBus.js';
 
 export interface WalletResult {
   transaction: Transaction;
@@ -39,7 +40,9 @@ export class WalletService {
       description: description ?? 'paper deposit',
       positionId: null,
     });
-    return { transaction, account: getAccount() };
+    const updated = getAccount();
+    publishEvent('account', updated);
+    return { transaction, account: updated };
   }
 
   /** Removes paper funds from the account. */
@@ -62,7 +65,9 @@ export class WalletService {
       description: description ?? 'paper withdrawal',
       positionId: null,
     });
-    return { transaction, account: getAccount() };
+    const updated = getAccount();
+    publishEvent('account', updated);
+    return { transaction, account: updated };
   }
 
   /** Reserves cash for an open position (moves it into the locked balance). */
@@ -85,7 +90,9 @@ export class WalletService {
       description: description ?? 'funds locked for trade',
       positionId: null,
     });
-    return { transaction, account: getAccount() };
+    const updated = getAccount();
+    publishEvent('account', updated);
+    return { transaction, account: updated };
   }
 
   /** Releases locked funds back to cash (e.g. when a position is closed). */
@@ -108,6 +115,8 @@ export class WalletService {
       description: description ?? 'locked funds released',
       positionId: null,
     });
-    return { transaction, account: getAccount() };
+    const updated = getAccount();
+    publishEvent('account', updated);
+    return { transaction, account: updated };
   }
 }

@@ -38,3 +38,24 @@ export interface VolatilityEstimate {
   /** Annualized volatility in percent (scaled by candles-per-year). */
   annualizedPercent: number;
 }
+
+/** Connection state of the live market data feed. */
+export type MarketConnectionStatus = 'connected' | 'polling' | 'disconnected' | 'error';
+
+/** Live ticker snapshot from the public market data source. */
+export interface LiveTicker {
+  status: MarketConnectionStatus;
+  /** Data source name, e.g. COINBASE. */
+  source: string;
+  /** Symbol actually used (may differ from requestedSymbol when falling back). */
+  symbol: string;
+  requestedSymbol: string;
+  usingFallback: boolean;
+  lastPrice: number;
+  priceChange24h: number;
+  priceChangePercent24h: number;
+  high24h: number;
+  low24h: number;
+  volume24h: number;
+  lastUpdatedAt: string;
+}

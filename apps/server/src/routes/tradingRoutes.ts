@@ -8,8 +8,12 @@ import { tradingLoop } from '../scheduler/tradingLoop.js';
 
 const riskSettingsSchema = z.object({
   maxOpenPositions: z.coerce.number().int().min(1).max(100).optional(),
-  lossLimitPercent: z.coerce.number().min(0).max(100).optional(),
+  // Daily loss limit: safe maximum of 80% unless configured otherwise.
+  lossLimitPercent: z.coerce.number().min(0).max(80).optional(),
   fixedTradeSizeUsd: z.coerce.number().positive().optional(),
+  postTradePromptEnabled: z.coerce.boolean().optional(),
+  maxOptionStakeUsd: z.coerce.number().min(1).max(100).optional(),
+  optionDefaultDurationSeconds: z.coerce.number().int().min(60).max(600).optional(),
 });
 
 /**
@@ -74,12 +78,24 @@ export async function tradingRoutes(app: FastifyInstance): Promise<void> {
       ...(parsed.data.fixedTradeSizeUsd !== undefined
         ? { fixedTradeSizeUsd: parsed.data.fixedTradeSizeUsd }
         : {}),
+      ...(parsed.data.postTradePromptEnabled !== undefined
+        ? { postTradePromptEnabled: parsed.data.postTradePromptEnabled }
+        : {}),
+      ...(parsed.data.maxOptionStakeUsd !== undefined
+        ? { maxOptionStakeUsd: parsed.data.maxOptionStakeUsd }
+        : {}),
+      ...(parsed.data.optionDefaultDurationSeconds !== undefined
+        ? { optionDefaultDurationSeconds: parsed.data.optionDefaultDurationSeconds }
+        : {}),
     };
     const account = updateAccount(patch);
     return {
       maxOpenPositions: account.maxOpenPositions,
       lossLimitPercent: account.lossLimitPercent,
       fixedTradeSizeUsd: account.fixedTradeSizeUsd,
+      postTradePromptEnabled: account.postTradePromptEnabled,
+      maxOptionStakeUsd: account.maxOptionStakeUsd,
+      optionDefaultDurationSeconds: account.optionDefaultDurationSeconds,
     };
   });
 }

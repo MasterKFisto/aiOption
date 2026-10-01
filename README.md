@@ -80,7 +80,7 @@ docker compose down        # remove the container (volume pnpm-store is kept)
 docker compose exec dev pnpm dev:server
 
 # health check
-curl http://localhost:3001/api/health
+curl http://localhost:8080/api/health
 ```
 
 Config lives in `apps/server/src/config.ts` (Zod-validated env vars, defaults in
@@ -130,15 +130,15 @@ No real exchange yet — everything runs against the paper venue:
 Manual fund injection for testing:
 
 ```bash
-curl -X POST http://localhost:3001/api/paper/deposit \
+curl -X POST http://localhost:8080/api/paper/deposit \
   -H 'Content-Type: application/json' \
   -d '{"amount":10000,"description":"initial paper funds"}'
 
-curl -X POST http://localhost:3001/api/paper/withdraw \
+curl -X POST http://localhost:8080/api/paper/withdraw \
   -H 'Content-Type: application/json' \
   -d '{"amount":2500}'
 
-curl http://localhost:3001/api/paper/balances
+curl http://localhost:8080/api/paper/balances
 ```
 
 ## Market data & signals (MVP)
@@ -192,13 +192,205 @@ Strict risk controls and a continuous paper-trading scheduler:
 Control endpoints:
 
 ```bash
-curl http://localhost:3001/api/trading/status
-curl -X POST http://localhost:3001/api/trading/start    # requires funds
-curl -X POST http://localhost:3001/api/trading/stop
-curl -X PUT http://localhost:3001/api/trading/risk/settings \
+curl http://localhost:8080/api/trading/status
+curl -X POST http://localhost:8080/api/trading/start    # requires funds
+curl -X POST http://localhost:8080/api/trading/stop
+curl -X PUT http://localhost:8080/api/trading/risk/settings \
   -H 'Content-Type: application/json' \
   -d '{"maxOpenPositions":3,"lossLimitPercent":8,"fixedTradeSizeUsd":10}'
 ```
+
+## Frontend (apps/web)
+
+React 18 + Vite + Ant Design + TanStack Query dashboard:
+
+```bash
+# dev server inside the container (published on localhost:5173)
+docker compose exec dev pnpm dev:web
+```
+
+- Vite proxies `/api` to the Fastify backend on port 8080 (same container).
+- Views: Dashboard (equity / available / locked / realized & unrealized PnL /
+  trading status), Positions (open & closed), AI Decisions (signal, confidence,
+  approval), Settings (risk limits, fixed trade size, trading on/off).
+
+Install dependencies (inside the container):
+
+```bash
+docker compose exec dev pnpm --filter @aioption/web add react@18 react-dom@18 antd @ant-design/icons @tanstack/react-query
+docker compose exec dev pnpm --filter @aioption/web add "@aioption/shared@workspace:*"
+docker compose exec dev pnpm --filter @aioption/web add -D vite @vitejs/plugin-react @types/react@^18 @types/react-dom@^18 @types/node@^22
+```
+
+## Security notes
+
+This is a **personal, local-only** application — protect it accordingly:
+
+- Docker ports bind to `127.0.0.1` only (not reachable from the LAN).
+- CORS is restricted to `CORS_ORIGIN` (default `http://localhost:5173`); the
+  backend rejects browser requests from other origins. Use `*` only if you
+  know what you're doing.
+- No authentication exists — anyone with local machine access can control the
+  app. Never expose these ports publicly.
+- All SQL is parameterized; API inputs are Zod-validated and value-clamped.
+
+## Real-time UI & Tron USDC (Phase 6.1)
+
+**Live market data** (display-only; the trading loop keeps using the
+deterministic simulated feed): the backend polls a public source (Coinbase)
+every 3s (`MARKET_POLL_INTERVAL_MS`) for `MARKET_SYMBOL` (default BTC/USDC)
+and falls back to `FALLBACK_MARKET_SYMBOL` (BTC/USDT) when the pair is
+unavailable — the UI labels the source and symbol accordingly.
+
+```bash
+curl http://localhost:8080/api/market/ticker
+curl 'http://localhost:8080/api/market/candles?interval=1m&limit=300'
+```
+
+**Server-sent events** stream every account/trade/risk/decision/deposit/
+withdrawal change to the dashboard (`GET /api/events`); TanStack Query
+polling (3s) remains as a fallback.
+
+**Tron USDC (TRC20)** — deposits and withdrawals are fixed to Tron/USDC/TRC20:
+
+```bash
+curl http://localhost:8080/api/deposits/info        # address, network, sync status
+curl http://localhost:8080/api/deposits             # deposit history
+curl -X POST http://localhost:8080/api/deposits/simulate -H 'Content-Type: application/json' -d '{"amount":500}'
+curl http://localhost:8080/api/withdrawals          # withdrawal history
+curl -X POST http://localhost:8080/api/withdrawals  -H 'Content-Type: application/json' \
+  -d '{"amount":120,"destinationAddress":"T...","confirmed":true}'
+```
+
+- `TRON_MODE=SIMULATED` by default: nothing is ever broadcast; simulated
+  deposits/withdrawals are recorded as network=TRON, asset=USDC, TRC20.
+- Live modes (SHASTA/NILE/MAINNET) require explicit configuration
+  (`TRON_DEPOSIT_ADDRESS`, `TRON_USDC_CONTRACT_ADDRESS`, optional
+  `TRON_GRID_API_KEY`); withdrawals stay REQUESTED (never broadcast) unless
+  `ENABLE_LIVE_TRON_WITHDRAWALS=true` AND the server-side
+  `TRON_HOT_WALLET_PRIVATE_KEY` is configured. The private key is never
+  exposed to the frontend. The hot wallet must hold TRX for energy/bandwidth.
+- Duplicate deposits are never credited twice (unique `txid`).
+
+The dashboard includes a live price panel + candlestick chart
+(lightweight-charts, 1m/5m/1h), account summary with loss-limit floor and
+daily loss remaining, open positions, recent decisions, risk events, deposit
+(with QR code) and withdrawal modals, and a post-trade prompt (keep in wallet
+or withdraw — toggled via `post_trade_prompt_enabled` in Settings, deduped in
+localStorage).
+
+## Binary options (Phase 6.2)
+
+Short-duration (5s/10s) binary contracts settled **internally** against the
+backend market price feed — never on-chain, no real exchange orders.
+Deposits/withdrawals remain Tron USDC (TRC20). Toggle between **Classic
+Options** and **Binary Options** tabs in the UI.
+
+- `apps/server/src/binary/` — service, repository (atomic settlement),
+  250ms settlement scheduler, routes.
+- `GET /api/binary/config` · `GET /api/binary/quote?stake=&duration=&payoutRatio=`
+  · `POST /api/binary/open` · `GET /api/binary/open` · `GET /api/binary/history`
+  · `GET /api/binary/summary` · `GET /api/server-time`
+- Payout ratios, stake limits, durations and the open-contract cap come from
+  `BINARY_*` env vars (see `.env.example`). Loss-limit and risk checks apply;
+  stale market data blocks opening and refunds unsettled contracts.
+- The local `.env` uses `FALLBACK_MARKET_SYMBOL=BTC/USD` (Coinbase's liquid
+  pair) so 5–10s contracts see real price movement; `BTC/USDT` remains the
+  documented default.
+
+## AI binary trading (Phase 6.3)
+
+An AI module that generates short-term UP/DOWN/NEUTRAL signals from the live
+tick buffer (momentum over 1/3/5/10s, short/long EMA direction, volatility,
+freshness) and can automatically open Phase 6.2 binary contracts in
+**AUTO_EXECUTE** mode. The real-time chart stays visible with AI signal and
+trade markers.
+
+**Modes** (default safe):
+
+- `DISABLED` — no evaluation.
+- `SIGNAL_ONLY` (default) — signals are generated, stored and displayed; no
+  contracts are opened.
+- `AUTO_EXECUTE` — after risk and confidence checks the AI opens binary
+  contracts via the existing Phase 6.2 service (source `AI_BINARY`). Outside
+  `PAPER` mode this requires `AI_BINARY_LIVE_AUTO_TRADING_ENABLED=true`.
+
+**Risk controls**: min confidence, signal persistence ticks, max open AI
+contracts, min time between trades, cooldown after loss, max consecutive
+losses, max session loss, max trades per hour, market-data staleness, and the
+global loss floor. Every stop logs a risk event and an `ai-binary` SSE event.
+AI decisions (every evaluation) and session stats are persisted in
+`ai_binary_decisions` / `ai_binary_stats` / `ai_binary_settings`.
+
+**Backend**: `apps/server/src/binary-ai/` — `binaryAiStrategy.ts` (deterministic
+strategy, replaceable by an ML model later), `binaryAiService.ts` (loop +
+risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
+`binaryAiRoutes.ts`, `binaryAiTypes.ts`.
+
+- `GET /api/binary-ai/status` · `PUT /api/binary-ai/settings`
+  · `POST /api/binary-ai/start` · `POST /api/binary-ai/stop`
+  · `GET /api/binary-ai/decisions` · `GET /api/binary-ai/stats`
+  · `GET /api/market/ticks?limit=120` (1-second tick history for the chart)
+- All `AI_BINARY_*` env vars are documented in `.env.example` and validated
+  with Zod. The UI panel confirms before switching to AUTO_EXECUTE and shows a
+  persistent high-risk warning.
+
+## Phase 6.4 — expiry, limits, Tron visibility, fees, wallet records, profit target
+
+- **Classic options**: explicit expiry (`expires_at`), 1/3/5/10-minute
+  durations (default 5m), a 1-second settlement scheduler with a grace period
+  and refund-on-stale behavior, and a manual ticket (`POST /api/options/open`,
+  `GET /api/options/config`). Positions API returns `expiresAt`,
+  `durationSeconds`, `secondsRemaining`, `settlementStatus`, `currentPrice`,
+  `unrealizedPnl`. Ledger: `OPTION_STAKE_LOCKED` / `OPTION_SETTLE_WIN` /
+  `OPTION_SETTLE_LOSS` / `OPTION_SETTLE_REFUND`; events `OPTION_EXPIRED_SETTLED`,
+  `OPTION_EXPIRED_REFUNDED`, `OPTION_SETTLEMENT_PRICE_STALE`.
+- **Limits**: max option stake 100 USDC (`MAX_OPTION_STAKE_USD`), daily loss
+  limit default 40% (`DAILY_LOSS_LIMIT_PERCENT`, UI allows 0–80%; the migration
+  only moves accounts still on the old 5% default).
+- **Tron visibility**: sidebar indicator (Simulated/Shasta/Nile/Mainnet ·
+  Connected/Degraded/Disconnected · readiness) with a status modal.
+  `GET /api/tron/status` · `GET /api/tron/health` (persists checks to
+  `tron_status_checks`) · `GET /api/tron/fee-estimate`. No secrets are exposed.
+- **Withdrawal fees**: `TRON_WITHDRAWAL_FEE_POLICY` (HOT_WALLET_PAYS /
+  DEDUCT_USDC_FROM_WITHDRAWAL / BLOCK_IF_INSUFFICIENT), `TRON_WITHDRAWAL_FEE_ESTIMATE_TRX`,
+  `TRON_USD_TRX_PRICE`, `TRON_MIN_TRX_BALANCE_FOR_WITHDRAWAL`,
+  `ALLOW_WITHDRAWAL_WHEN_FEE_INSUFFICIENT`. The withdrawal modal shows the fee in
+  TRX/USD, the payer, hot-wallet resources, and blocks (or marks PENDING_FEE)
+  when resources are insufficient.
+- **Wallet Records** page + `GET /api/wallet/records?type=&limit=&offset=` and
+  `GET /api/wallet/records/:id`: unified deposits/withdrawals/trades/fees/
+  refunds with status, txid, Tronscan links and a summary header.
+- **AI profit target**: `AI_BINARY_PROFIT_TARGET_USD`,
+  `AI_BINARY_DAILY_PROFIT_LIMIT_PERCENT`, `AI_BINARY_STOP_ON_PROFIT_TARGET`.
+  The AI stops (STOPPED_BY_PROFIT_TARGET) when the session profit target or the
+  daily profit limit is reached; events `AI_BINARY_PROFIT_TARGET_REACHED`,
+  `AI_BINARY_DAILY_PROFIT_LIMIT_REACHED`, `AI_BINARY_STOPPED_BY_PROFIT_TARGET`;
+  the UI shows profit stats and a keep/withdraw prompt.
+
+## Phase 6.5 — unified account block, binary session gain, TRX fee wallet
+
+- **Unified account block**: one shared `AccountSummaryBar` (equity, available,
+  locked, unrealized/realized PnL, daily loss limit + remaining, loss floor,
+  mode, trading status, binary session gain + limit, AI binary session profit)
+  at the top of the Classic Options, Binary Options and Wallet Records pages.
+  `GET /api/account` returns the unified fields; updates via SSE + 2s polling.
+- **Binary Max Session Gain**: `BINARY_SESSION_GAIN_LIMIT_ENABLED`,
+  `BINARY_MAX_SESSION_GAIN_USDC=50`, `BINARY_MAX_SESSION_GAIN_PERCENT=0`,
+  `BINARY_SESSION_RESET_ON_START=true`. Manual + AI binary settlements feed a
+  combined `binary_session_stats` session; reaching the limit blocks new
+  manual contracts, stops AI auto-execution
+  (`AI_BINARY_STOPPED_BY_SESSION_GAIN_LIMIT`), and shows a
+  reset/keep/withdraw banner. Endpoints: `GET /api/binary/session-stats`,
+  `PUT /api/binary/session-settings`, `POST /api/binary/session-reset`.
+- **TRX fee wallet**: TRX deposits fund a separate network-fee reserve
+  (never credited as USDC trading balance). `tron_fee_deposits` records +
+  `GET /api/tron/fee-deposit-info` / `fee-status` / `fee-deposits` and
+  `POST /api/tron/simulate-trx-deposit` (paper/simulated only). The fee
+  reserve feeds the withdrawal fee gate and wallet records
+  (`FEE_DEPOSIT` kind). UI: TRX fee deposit panel (address, QR, reserve,
+  simulate button) on the Wallet Records page and the Tron status modal;
+  the withdrawal modal links to it when the reserve is insufficient.
 
 ## TypeScript
 

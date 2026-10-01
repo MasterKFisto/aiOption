@@ -20,8 +20,10 @@ services:
     # Inject the repository's .env file into the container.
     env_file: .env
     ports:
-      # Backend API (apps/server)
-      - '3001:3001'
+      # Backend API (apps/server) — loopback only: this is a personal local app
+      - '127.0.0.1:8080:8080'
+      # Frontend dev server (apps/web) — loopback only
+      - '127.0.0.1:5173:5173'
     init: true
     stdin_open: true
     tty: true
