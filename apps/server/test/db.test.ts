@@ -59,6 +59,8 @@ describe('account repository', () => {
     expect(account.fixedTradeSizeUsd).toBe(10);
     expect(account.maxOpenPositions).toBe(5);
     expect(account.lossLimitPercent).toBe(5);
+    expect(account.tradingEnabled).toBe(false);
+    expect(account.startingEquity).toBe(0);
   });
 
   it('updateAccount patches only the provided fields', () => {
@@ -150,6 +152,37 @@ describe('ai decisions repository', () => {
     expect(decision.executed).toBe(false);
     const list = repo.listAiDecisions();
     expect(list[0]?.id).toBe(decision.id);
+  });
+
+  it('gets decisions by id and marks them executed with a position link', () => {
+    const created = repo.logAiDecision({
+      symbol: 'ETH/USDT',
+      signal: 'BEARISH',
+      action: 'OPEN_PUT',
+      confidence: 0.6,
+      expectedReturn: -0.02,
+      proposedTradeSizeUsd: 10,
+      rationale: 'test',
+      executed: false,
+      positionId: null,
+    });
+    expect(repo.getAiDecisionById(created.id)?.id).toBe(created.id);
+    expect(repo.getAiDecisionById(99999)).toBeNull();
+
+    const position = repo.createPosition({
+      symbol: 'ETH-2026-10-08-2600-P',
+      side: 'PUT',
+      strikePrice: 2600,
+      expiry: '2026-10-08',
+      quantity: 0.1,
+      entryPremium: 78,
+      openedAt: new Date().toISOString(),
+    });
+    const marked = repo.markAiDecisionExecuted(created.id, position.id);
+    expect(marked?.executed).toBe(true);
+    expect(marked?.positionId).toBe(position.id);
+    expect(repo.getAiDecisionById(created.id)?.executed).toBe(true);
+    expect(repo.markAiDecisionExecuted(99999, null)).toBeNull();
   });
 });
 

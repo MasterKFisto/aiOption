@@ -1,4 +1,4 @@
-import type { AiAction, AiDecision, Candle, MarketSignal, VolatilityEstimate } from '@aioption/shared';
+import type { AiAction, AiDecision, Candle, MarketSignal, Ticker, VolatilityEstimate } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { logAiDecision } from '../db/repositories.js';
@@ -7,6 +7,7 @@ import { logAiDecision } from '../db/repositories.js';
 export interface MarketDataProvider {
   getSymbols(): string[];
   getCandles(symbol: string, count?: number): Candle[];
+  getTicker(symbol: string): Ticker;
   estimateVolatility(symbol: string, lookbackCandles?: number): VolatilityEstimate;
 }
 

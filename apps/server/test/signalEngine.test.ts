@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import type { Candle, VolatilityEstimate } from '@aioption/shared';
+import type { Candle, Ticker, VolatilityEstimate } from '@aioption/shared';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { SimulatedMarketDataService } from '../src/market/marketDataService.js';
@@ -51,6 +51,18 @@ function stubMarket(closes: number[], annualizedVolPercent: number): MarketDataP
   return {
     getSymbols: () => ['STUB/USDT'],
     getCandles: (_symbol: string, count?: number) => candles.slice(-(count ?? candles.length)),
+    getTicker: (symbol: string): Ticker => ({
+      symbol,
+      lastPrice: 100,
+      bid: 99.95,
+      ask: 100.05,
+      priceChange24h: 0,
+      priceChangePercent24h: 0,
+      high24h: 100,
+      low24h: 100,
+      volume24h: 1000,
+      timestamp: Date.now(),
+    }),
     estimateVolatility: (symbol: string, lookbackCandles = 24): VolatilityEstimate => ({
       symbol,
       lookbackCandles,

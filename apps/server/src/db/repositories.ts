@@ -29,6 +29,8 @@ interface AccountRow {
   fixed_trade_size_usd: number;
   max_open_positions: number;
   loss_limit_percent: number;
+  trading_enabled: number;
+  starting_equity: number;
   created_at: string;
   updated_at: string;
 }
@@ -96,6 +98,8 @@ const toAccount = (r: AccountRow): Account => ({
   fixedTradeSizeUsd: r.fixed_trade_size_usd,
   maxOpenPositions: r.max_open_positions,
   lossLimitPercent: r.loss_limit_percent,
+  tradingEnabled: r.trading_enabled === 1,
+  startingEquity: r.starting_equity,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -160,6 +164,8 @@ type AccountBind = {
   fixedTradeSizeUsd: number | null;
   maxOpenPositions: number | null;
   lossLimitPercent: number | null;
+  tradingEnabled: number | null;
+  startingEquity: number | null;
   updatedAt: string;
 };
 
@@ -184,6 +190,8 @@ export function updateAccount(patch: AccountUpdate): Account {
          fixed_trade_size_usd = COALESCE(@fixedTradeSizeUsd, fixed_trade_size_usd),
          max_open_positions = COALESCE(@maxOpenPositions, max_open_positions),
          loss_limit_percent = COALESCE(@lossLimitPercent, loss_limit_percent),
+         trading_enabled = COALESCE(@tradingEnabled, trading_enabled),
+         starting_equity = COALESCE(@startingEquity, starting_equity),
          updated_at = @updatedAt
        WHERE id = 1`,
     )
@@ -195,6 +203,8 @@ export function updateAccount(patch: AccountUpdate): Account {
       fixedTradeSizeUsd: patch.fixedTradeSizeUsd ?? null,
       maxOpenPositions: patch.maxOpenPositions ?? null,
       lossLimitPercent: patch.lossLimitPercent ?? null,
+      tradingEnabled: patch.tradingEnabled === undefined ? null : patch.tradingEnabled ? 1 : 0,
+      startingEquity: patch.startingEquity ?? null,
       updatedAt: now(),
     });
   return getAccount();
@@ -346,6 +356,26 @@ export function listAiDecisions(limit = 100): AiDecision[] {
     .prepare<[number], AiDecisionRow>('SELECT * FROM ai_decisions ORDER BY id DESC LIMIT ?')
     .all(limit);
   return rows.map(toAiDecision);
+}
+
+export function getAiDecisionById(id: number): AiDecision | null {
+  const row = getDb()
+    .prepare<[number], AiDecisionRow>('SELECT * FROM ai_decisions WHERE id = ?')
+    .get(id);
+  return row ? toAiDecision(row) : null;
+}
+
+/** Marks a decision as executed and links it to the position it created. */
+export function markAiDecisionExecuted(id: number, positionId: number | null): AiDecision | null {
+  const result = getDb()
+    .prepare<[number | null, number], unknown>(
+      'UPDATE ai_decisions SET executed = 1, position_id = ? WHERE id = ?',
+    )
+    .run(positionId, id);
+  if (result.changes === 0) {
+    return null;
+  }
+  return getAiDecisionById(id);
 }
 
 /* -------------------------------- risk events ------------------------------ */

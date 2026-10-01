@@ -175,6 +175,31 @@ docker compose exec dev pnpm --filter @aioption/server test:watch   # watch mode
 Test files live in `apps/server/test/` and are strictly typechecked via
 `tsconfig.test.json` (part of `pnpm typecheck`).
 
+## Risk engine & trading loop
+
+Strict risk controls and a continuous paper-trading scheduler:
+
+- `apps/server/src/risk/riskEngine.ts` — evaluates every `AiDecision` against
+  the account (trading enabled, open-position capacity, fixed $10 trade size,
+  sufficient cash balance). If equity falls to
+  `startingEquity * (1 - lossLimitPercent/100)`, it closes all open positions,
+  disables trading, and logs a `risk_event`.
+- `apps/server/src/scheduler/tradingLoop.ts` — `setInterval` every 1 minute:
+  market data → AI signal → risk engine → paper execution → wallet lock +
+  position + executed-decision link. Starts on boot only when
+  `trading_enabled` is set in the DB.
+
+Control endpoints:
+
+```bash
+curl http://localhost:3001/api/trading/status
+curl -X POST http://localhost:3001/api/trading/start    # requires funds
+curl -X POST http://localhost:3001/api/trading/stop
+curl -X PUT http://localhost:3001/api/trading/risk/settings \
+  -H 'Content-Type: application/json' \
+  -d '{"maxOpenPositions":3,"lossLimitPercent":8,"fixedTradeSizeUsd":10}'
+```
+
 ## TypeScript
 
 Base strict config lives in `tsconfig.base.json` (TypeScript 7.x). Each package

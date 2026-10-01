@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS account (
   fixed_trade_size_usd REAL    NOT NULL DEFAULT 10,
   max_open_positions   INTEGER NOT NULL DEFAULT 5,
   loss_limit_percent   REAL    NOT NULL DEFAULT 5,
+  trading_enabled      INTEGER NOT NULL DEFAULT 0,
+  starting_equity      REAL    NOT NULL DEFAULT 0,
   created_at           TEXT    NOT NULL,
   updated_at           TEXT    NOT NULL
 );
@@ -83,6 +85,14 @@ export function runMigrations(db: Database.Database): void {
   // Schema drift fix for databases created before `locked_balance` existed.
   if (!hasColumn(db, 'account', 'locked_balance')) {
     db.exec('ALTER TABLE account ADD COLUMN locked_balance REAL NOT NULL DEFAULT 0');
+  }
+
+  // Schema drift fixes for databases created before the risk/trading columns existed.
+  if (!hasColumn(db, 'account', 'trading_enabled')) {
+    db.exec('ALTER TABLE account ADD COLUMN trading_enabled INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!hasColumn(db, 'account', 'starting_equity')) {
+    db.exec('ALTER TABLE account ADD COLUMN starting_equity REAL NOT NULL DEFAULT 0');
   }
 
   // Schema drift fixes for databases created before the signal-engine columns existed.

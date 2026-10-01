@@ -49,6 +49,10 @@ export interface Account {
   maxOpenPositions: number;
   /** Daily loss limit as a percentage of equity. */
   lossLimitPercent: number;
+  /** Whether the trading loop is allowed to execute trades. */
+  tradingEnabled: boolean;
+  /** Equity snapshot taken when trading was enabled — the loss-limit baseline. */
+  startingEquity: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -136,6 +140,8 @@ export type AccountUpdate = Partial<
     | 'fixedTradeSizeUsd'
     | 'maxOpenPositions'
     | 'lossLimitPercent'
+    | 'tradingEnabled'
+    | 'startingEquity'
   >
 >;
 
