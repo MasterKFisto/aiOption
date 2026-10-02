@@ -60,6 +60,15 @@ describe('dashboard routes', () => {
     expect(body.realizedPnl).toBe(0);
     expect(body.unrealizedPnl).toBe(0);
     expect(body.loopRunning).toBe(false);
+    // Phase 6.5 unified account-block fields are present.
+    expect(body.dailyLossLimitPercent).toBe(5);
+    expect(typeof body.dailyLossRemainingUsd).toBe('number');
+    expect(typeof body.lossLimitFloorUsd).toBe('number');
+    expect(body.binarySessionGainUsd).toBe(0);
+    expect(body.binarySessionGainLimitUsd).toBe(50);
+    expect(body.binarySessionGainRemainingUsd).toBe(50);
+    expect(body.binarySessionGainLimitReached).toBe(false);
+    expect(typeof body.aiBinarySessionProfitUsd).toBe('number');
   });
 
   it('GET /api/account/summary sums realized PnL from closed positions', async () => {

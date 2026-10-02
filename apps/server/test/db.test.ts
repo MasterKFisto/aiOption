@@ -24,6 +24,28 @@ afterAll(() => {
 });
 
 describe('connection + migrations', () => {
+  it('seeds a brand-new account with the Phase 6.4/6.5 safe defaults', () => {
+    // Regression: a fresh DB used to seed loss_limit_percent = 5 because the
+    // 5→40 migration ran before the account row was inserted.
+    const account = repo.getAccount();
+    expect(account.lossLimitPercent).toBe(40);
+    expect(account.maxOptionStakeUsd).toBe(100);
+    expect(account.optionDefaultDurationSeconds).toBe(300);
+    expect(account.binarySessionGainLimitEnabled).toBe(true);
+    expect(account.binaryMaxSessionGainUsdc).toBe(50);
+    expect(account.mode).toBe('PAPER');
+    expect(account.tradingEnabled).toBe(false);
+    expect(account.equity).toBe(0);
+  });
+
+  it('keeps an explicitly saved non-default loss limit across re-migration', async () => {
+    repo.updateAccount({ lossLimitPercent: 25 });
+    const { runMigrations } = await import('../src/db/migrations.js');
+    runMigrations(connection.getDb());
+    expect(repo.getAccount().lossLimitPercent).toBe(25);
+    repo.updateAccount({ lossLimitPercent: 40 });
+  });
+
   it('opens the DB at the configured path with WAL mode and foreign keys on', () => {
     expect(fs.existsSync(dbPath)).toBe(true);
     const db = connection.getDb();
@@ -66,7 +88,7 @@ describe('account repository', () => {
     expect(account.baseCurrency).toBe('USDC');
     expect(account.fixedTradeSizeUsd).toBe(10);
     expect(account.maxOpenPositions).toBe(5);
-    expect(account.lossLimitPercent).toBe(5);
+    expect(account.lossLimitPercent).toBe(40); // Phase 6.4 default
     expect(account.tradingEnabled).toBe(false);
     expect(account.startingEquity).toBe(0);
   });
@@ -77,7 +99,7 @@ describe('account repository', () => {
     expect(updated.cashBalance).toBe(400);
     expect(updated.lockedBalance).toBe(100);
     expect(updated.fixedTradeSizeUsd).toBe(10); // untouched
-    expect(updated.lossLimitPercent).toBe(5); // untouched
+    expect(updated.lossLimitPercent).toBe(40); // untouched
 
     const again = repo.updateAccount({ lockedBalance: 0 });
     expect(again.equity).toBe(500); // untouched

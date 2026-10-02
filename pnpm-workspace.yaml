@@ -7,3 +7,9 @@ packages:
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+
+# Security: force the patched axios (transitive via tronweb) — fixes 12
+# advisories (7 high) in axios < 1.20.0 (ReDoS, prototype pollution,
+# header injection, redirect/proxy bypass).
+overrides:
+  axios: '>=1.20.0'

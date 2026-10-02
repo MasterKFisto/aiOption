@@ -100,6 +100,20 @@ function stubFetch(): void {
         notes: 'simulated TRX fee deposit',
       },
     ],
+    '/api/tron/fee-estimate?amount=100&destination=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t': {
+      network: 'TRON',
+      asset: 'USDC',
+      tokenStandard: 'TRC20',
+      estimatedFeeTrx: 30,
+      estimatedFeeUsd: 3.6,
+      feePayer: 'HOT_WALLET',
+      energyRequired: 31895,
+      bandwidthRequired: 345,
+      hotWalletTrxBalance: 0,
+      hotWalletEnergyAvailable: 0,
+      sufficientFeeResources: false,
+      warnings: ['hot wallet TRX balance (0) or energy may be insufficient'],
+    },
     '/api/market/ticker': {
       status: 'connected',
       ticker: {
@@ -360,6 +374,15 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Classic Raise')).toBeTruthy();
       expect(screen.getByText('Simulated')).toBeTruthy();
     });
+
+    // The unified account bar shows the Phase 6.5 fields.
+    await waitFor(() => {
+      expect(screen.getByText('Binary session gain')).toBeTruthy();
+      expect(screen.getByText('Binary gain limit')).toBeTruthy();
+      expect(screen.getByText('AI binary session profit')).toBeTruthy();
+      expect(screen.getByText(/Daily loss limit/)).toBeTruthy();
+      expect(screen.getByText('Loss limit floor')).toBeTruthy();
+    });
   });
 
   it('renders the Binary Options page without crashing', async () => {
@@ -428,6 +451,15 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Hot wallet TRX')).toBeTruthy();
     });
 
+    // The TRX fee wallet panel is part of the page (address, reserve, simulate).
+    await waitFor(() => {
+      expect(screen.getByText('TRX fee wallet')).toBeTruthy();
+      expect(screen.getByText('TSimulatedFeeWalletAddressTRX0000000001')).toBeTruthy();
+      expect(screen.getByText('Simulate TRX fee deposit')).toBeTruthy();
+      expect(screen.getByText('Recent TRX fee deposits')).toBeTruthy();
+      expect(screen.getByText(/not credited as USDC trading balance/)).toBeTruthy();
+    });
+
     // The bottom-of-sidebar Tron indicator opens the status modal.
     fireEvent.click(screen.getByText('Simulated'));
     await waitFor(() => {
@@ -435,5 +467,44 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Deposit address')).toBeTruthy();
       expect(screen.getByText('Energy available')).toBeTruthy();
     });
+  });
+
+  it('shows the fee-reserve warning and disables withdrawal submission', async () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+
+    // Open the withdrawal modal from the Classic Options page.
+    fireEvent.click(screen.getByText('Withdraw'));
+
+    // Wait until the available balance has loaded, otherwise the amount
+    // input (max = available) would clamp the typed amount to 0.
+    await waitFor(() => {
+      expect(screen.getByText('Withdraw USDC')).toBeTruthy();
+      expect(screen.getByText('$800.00')).toBeTruthy();
+    });
+
+    // Fill amount + address; fireEvent.change handles React's value tracker
+    // so the antd form store registers the new values.
+    const spin = document.querySelector(
+      '.ant-modal input[role="spinbutton"]',
+    ) as HTMLInputElement;
+    fireEvent.change(spin, { target: { value: '100' } });
+    const address = document.querySelector('.ant-modal input[placeholder="T..."]') as HTMLInputElement;
+    fireEvent.change(address, { target: { value: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Fee resources insufficient/)).toBeTruthy();
+    });
+    expect(screen.getByText('Open TRX fee deposit panel')).toBeTruthy();
+    const submit = screen.getByRole('button', { name: /Submit withdrawal/ }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
   });
 });

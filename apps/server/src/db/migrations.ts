@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS account (
   base_currency        TEXT    NOT NULL DEFAULT 'USDC',
   fixed_trade_size_usd REAL    NOT NULL DEFAULT 10,
   max_open_positions   INTEGER NOT NULL DEFAULT 5,
-  loss_limit_percent   REAL    NOT NULL DEFAULT 5,
+  loss_limit_percent   REAL    NOT NULL DEFAULT 40,
   trading_enabled      INTEGER NOT NULL DEFAULT 0,
   starting_equity      REAL    NOT NULL DEFAULT 0,
   post_trade_prompt_enabled INTEGER NOT NULL DEFAULT 1,
@@ -348,12 +348,6 @@ export function runMigrations(db: Database.Database): void {
      WHERE (expires_at IS NULL OR expires_at = '')`,
   ).run();
 
-  // Daily loss limit default moved from 5% to 40% (Phase 6.4). Only migrate
-  // accounts that still hold the old default so explicit user settings survive.
-  db.prepare(
-    'UPDATE account SET loss_limit_percent = 40 WHERE loss_limit_percent = 5',
-  ).run();
-
   // Schema drift fixes for databases created before the signal-engine columns existed.
   if (!hasColumn(db, 'ai_decisions', 'signal')) {
     db.exec("ALTER TABLE ai_decisions ADD COLUMN signal TEXT NOT NULL DEFAULT 'NEUTRAL'");
@@ -371,6 +365,13 @@ export function runMigrations(db: Database.Database): void {
     now,
     now,
   );
+
+  // Daily loss limit default moved from 5% to 40% (Phase 6.4). Runs AFTER the
+  // seed so brand-new databases are covered too; only migrates accounts that
+  // still hold the old default so explicit user settings survive.
+  db.prepare(
+    'UPDATE account SET loss_limit_percent = 40 WHERE loss_limit_percent = 5',
+  ).run();
 }
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
