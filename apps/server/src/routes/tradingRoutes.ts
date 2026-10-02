@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { AccountUpdate } from '@aioption/shared';
 
+import { config } from '../config.js';
 import { getAccount, updateAccount } from '../db/repositories.js';
 import { tradingLoop } from '../scheduler/tradingLoop.js';
 
@@ -13,7 +14,14 @@ const riskSettingsSchema = z.object({
   fixedTradeSizeUsd: z.coerce.number().positive().optional(),
   postTradePromptEnabled: z.coerce.boolean().optional(),
   maxOptionStakeUsd: z.coerce.number().min(1).max(100).optional(),
-  optionDefaultDurationSeconds: z.coerce.number().int().min(60).max(600).optional(),
+  // Phase 6.5.1: must be one of the fixed allowed durations (max 60 minutes).
+  optionDefaultDurationSeconds: z.coerce
+    .number()
+    .int()
+    .refine((value) => config.OPTION_ALLOWED_DURATIONS_SECONDS.includes(value), {
+      message: 'Invalid option duration.',
+    })
+    .optional(),
 });
 
 /**

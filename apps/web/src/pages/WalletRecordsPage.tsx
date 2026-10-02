@@ -17,6 +17,7 @@ import type { WalletRecord } from '@aioption/shared';
 
 import { api } from '../api/client';
 import { AccountSummaryBar } from '../components/AccountSummaryBar';
+import { TradeAddressPanel } from '../components/TradeAddressPanel';
 import { TrxFeeDepositPanel } from '../components/TrxFeeDepositPanel';
 
 type Filter = 'ALL' | 'DEPOSIT' | 'WITHDRAWAL' | 'TRADE' | 'FEE' | 'REFUND' | 'FEE_DEPOSIT';
@@ -53,7 +54,14 @@ export function WalletRecordsPage() {
   return (
     <div>
       <AccountSummaryBar />
-      <TrxFeeDepositPanel />
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={12}>
+          <TradeAddressPanel />
+        </Col>
+        <Col xs={24} xl={12}>
+          <TrxFeeDepositPanel />
+        </Col>
+      </Row>
       <div style={{ marginTop: 16 }}>
         <Card title="Wallet records" size="small">
         {summary && (

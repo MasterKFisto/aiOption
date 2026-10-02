@@ -40,6 +40,8 @@ const envSchema = z.object({
   LOG_LEVEL: z.string().trim().default('info'),
   /** Comma-separated list of allowed browser origins (CORS). Use * to allow all. */
   CORS_ORIGIN: z.string().trim().default('http://localhost:5173'),
+  /** Comma-separated hostnames the API may be addressed as (DNS-rebinding guard). */
+  ALLOWED_HOSTS: z.string().trim().default('localhost,127.0.0.1,::1'),
   /** Primary market symbol for the live public price feed. */
   MARKET_SYMBOL: z.string().trim().min(1).default('BTC/USDC'),
   /** Fallback symbol if the primary pair is unavailable on the data source. */
@@ -101,10 +103,14 @@ const envSchema = z.object({
   AI_BINARY_REQUIRE_SIGNAL_PERSISTENCE_TICKS: z.coerce.number().int().min(1).default(3),
   AI_BINARY_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(3000),
   AI_BINARY_LIVE_AUTO_TRADING_ENABLED: z.enum(['true', 'false']).default('false'),
-  /* --------------------------- classic options (6.4) ------------------------- */
-  OPTION_MAX_DURATION_SECONDS: z.coerce.number().int().positive().default(600),
-  OPTION_DEFAULT_DURATION_SECONDS: z.coerce.number().int().positive().default(300),
-  OPTION_ALLOWED_DURATIONS_SECONDS: z.string().trim().default('60,180,300,600'),
+  /* ---------------------- classic options (6.4 / 6.5.1) ---------------------- */
+  /** Hard maximum classic-option duration: 60 minutes. */
+  OPTION_MAX_DURATION_SECONDS: z.coerce.number().int().positive().max(3600).default(3600),
+  /** Default classic-option duration: 10 minutes. */
+  OPTION_DEFAULT_DURATION_SECONDS: z.coerce.number().int().positive().default(600),
+  OPTION_ALLOWED_DURATIONS_SECONDS: z.string().trim().default('60,180,300,600,900,1800,3600'),
+  /** Total (all-time) loss limit as % of starting equity; 0 = disabled. */
+  TOTAL_LOSS_LIMIT_PERCENT: z.coerce.number().min(0).max(100).default(0),
   OPTION_SETTLEMENT_GRACE_MS: z.coerce.number().int().min(0).default(5000),
   OPTION_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(3000),
   MAX_OPTION_STAKE_USD: z.coerce.number().positive().default(100),
@@ -152,6 +158,23 @@ const envSchema = z.object({
       message: `must be one of the allowed payout ratios [${allowedRatios.join(', ')}]`,
     });
   }
+  // Classic options (6.5.1): every allowed duration must be <= the maximum,
+  // and the default must be one of the allowed durations.
+  const optionDurations = parseNumberList(env.OPTION_ALLOWED_DURATIONS_SECONDS);
+  if (optionDurations.length === 0 || optionDurations.some((d) => d > env.OPTION_MAX_DURATION_SECONDS)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPTION_ALLOWED_DURATIONS_SECONDS'],
+      message: `must be a non-empty list with every value <= OPTION_MAX_DURATION_SECONDS (${env.OPTION_MAX_DURATION_SECONDS})`,
+    });
+  }
+  if (!optionDurations.includes(env.OPTION_DEFAULT_DURATION_SECONDS)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OPTION_DEFAULT_DURATION_SECONDS'],
+      message: `must be one of the allowed durations [${optionDurations.join(', ')}]`,
+    });
+  }
 });
 
 const result = envSchema.safeParse(process.env);
@@ -182,6 +205,9 @@ export const config = {
   CORS_ORIGINS: env.CORS_ORIGIN.split(',')
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0),
+  ALLOWED_HOSTS: env.ALLOWED_HOSTS.split(',')
+    .map((host) => host.trim())
+    .filter((host) => host.length > 0),
   MARKET_SYMBOL: env.MARKET_SYMBOL,
   FALLBACK_MARKET_SYMBOL: env.FALLBACK_MARKET_SYMBOL,
   MARKET_POLL_INTERVAL_MS: env.MARKET_POLL_INTERVAL_MS,
@@ -223,7 +249,11 @@ export const config = {
   AI_BINARY_LIVE_AUTO_TRADING_ENABLED: env.AI_BINARY_LIVE_AUTO_TRADING_ENABLED === 'true',
   OPTION_MAX_DURATION_SECONDS: env.OPTION_MAX_DURATION_SECONDS,
   OPTION_DEFAULT_DURATION_SECONDS: env.OPTION_DEFAULT_DURATION_SECONDS,
-  OPTION_ALLOWED_DURATIONS_SECONDS: parseNumberList(env.OPTION_ALLOWED_DURATIONS_SECONDS),
+  OPTION_ALLOWED_DURATIONS_SECONDS: [...new Set(parseNumberList(env.OPTION_ALLOWED_DURATIONS_SECONDS))].sort(
+    (a, b) => a - b,
+  ),
+  TOTAL_LOSS_LIMIT_PERCENT: env.TOTAL_LOSS_LIMIT_PERCENT,
+  DAILY_LOSS_LIMIT_PERCENT: env.DAILY_LOSS_LIMIT_PERCENT,
   OPTION_SETTLEMENT_GRACE_MS: env.OPTION_SETTLEMENT_GRACE_MS,
   OPTION_MAX_PRICE_STALE_MS: env.OPTION_MAX_PRICE_STALE_MS,
   MAX_OPTION_STAKE_USD: env.MAX_OPTION_STAKE_USD,

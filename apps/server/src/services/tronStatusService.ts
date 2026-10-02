@@ -3,7 +3,7 @@ import type { TronConnectionStatus, TronFeeEstimate, TronReadiness, TronStatus }
 import { config } from '../config.js';
 import { feeWalletTrxBalance, logTronStatusCheck } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { SIMULATED_DEPOSIT_ADDRESS } from './tronService.js';
+import { resolveUsdcTradeAddress } from './appSettings.js';
 
 const NETWORK_NAMES: Record<string, string> = {
   SIMULATED: 'Simulated',
@@ -30,6 +30,7 @@ export function getTronStatus(): TronStatus {
     ? simulatedResources()
     : { trxBalance: 0, energyAvailable: 0, bandwidthAvailable: 0 };
 
+  const tradeAddress = resolveUsdcTradeAddress();
   const warnings: string[] = [];
   let connectionStatus: TronConnectionStatus = 'CONNECTED';
   let readiness: TronReadiness = 'READY_TO_TRADE';
@@ -37,13 +38,15 @@ export function getTronStatus(): TronStatus {
   if (simulated) {
     warnings.push('simulated Tron mode — no real chain interaction');
   } else {
+    // The trade address may come from the DB (UI) or the environment.
     const configured =
-      config.TRON_DEPOSIT_ADDRESS.length > 0 && config.TRON_USDC_CONTRACT_ADDRESS.length > 0;
+      (tradeAddress.source === 'DATABASE' || tradeAddress.source === 'ENVIRONMENT') &&
+      config.TRON_USDC_CONTRACT_ADDRESS.length > 0;
     if (!configured) {
       connectionStatus = 'NOT_CONFIGURED';
       readiness = 'CONFIGURATION_MISSING';
       warnings.push(
-        'Tron configuration missing: set TRON_DEPOSIT_ADDRESS and TRON_USDC_CONTRACT_ADDRESS',
+        'Tron configuration missing: save a USDC trade address (or set TRON_DEPOSIT_ADDRESS) and set TRON_USDC_CONTRACT_ADDRESS',
       );
     } else if (!lastCheckedAt) {
       connectionStatus = 'DEGRADED';
@@ -74,7 +77,8 @@ export function getTronStatus(): TronStatus {
     depositsEnabled: true,
     withdrawalsEnabled: simulated || config.ENABLE_LIVE_TRON_WITHDRAWALS,
     liveWithdrawalsEnabled: config.ENABLE_LIVE_TRON_WITHDRAWALS,
-    depositAddress: config.TRON_DEPOSIT_ADDRESS || SIMULATED_DEPOSIT_ADDRESS,
+    depositAddress: tradeAddress.address,
+    depositAddressSource: tradeAddress.source,
     hotWalletAddress: config.TRON_HOT_WALLET_ADDRESS,
     usdcContractAddress: config.TRON_USDC_CONTRACT_ADDRESS,
     requiredConfirmations: config.TRON_REQUIRED_CONFIRMATIONS,

@@ -100,6 +100,22 @@ export function useApiEvents(): void {
         case 'options':
           void queryClient.invalidateQueries({ queryKey: ['positions'] });
           void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          void queryClient.invalidateQueries({ queryKey: ['classic-status'] });
+          void queryClient.invalidateQueries({ queryKey: ['classic-history'] });
+          void queryClient.invalidateQueries({ queryKey: ['classic-settings'] });
+          break;
+        case 'classic':
+          void queryClient.invalidateQueries({ queryKey: ['classic-status'] });
+          void queryClient.invalidateQueries({ queryKey: ['classic-settings'] });
+          void queryClient.invalidateQueries({ queryKey: ['options-config'] });
+          void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          break;
+        case 'settings':
+          void queryClient.invalidateQueries({ queryKey: ['wallet-addresses'] });
+          void queryClient.invalidateQueries({ queryKey: ['deposits-info'] });
+          void queryClient.invalidateQueries({ queryKey: ['tron-status'] });
+          void queryClient.invalidateQueries({ queryKey: ['tron-fee-deposit-info'] });
+          void queryClient.invalidateQueries({ queryKey: ['tron-fee-status'] });
           break;
       }
     };

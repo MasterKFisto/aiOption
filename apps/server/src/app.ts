@@ -9,6 +9,7 @@ import { getAiBinaryService } from './binary-ai/binaryAiService.js';
 import { binaryAiRoutes } from './binary-ai/binaryAiRoutes.js';
 import { startAiBinaryScheduler, stopAiBinaryScheduler } from './binary-ai/binaryAiScheduler.js';
 import { optionService } from './options/optionService.js';
+import { classicRoutes } from './options/classicRoutes.js';
 import { optionRoutes } from './options/optionRoutes.js';
 import { startOptionSettlement, stopOptionSettlement } from './options/optionSettlement.js';
 import { config } from './config.js';
@@ -22,10 +23,12 @@ import { eventRoutes } from './routes/eventRoutes.js';
 import { marketRoutes } from './routes/marketRoutes.js';
 import { tradingRoutes } from './routes/tradingRoutes.js';
 import { tronRoutes } from './routes/tronRoutes.js';
+import { walletAddressRoutes } from './routes/walletAddressRoutes.js';
 import { walletRecordsRoutes } from './routes/walletRecordsRoutes.js';
 import { walletRoutes } from './routes/walletRoutes.js';
 import { withdrawalRoutes } from './routes/withdrawalRoutes.js';
 import { tradingLoop } from './scheduler/tradingLoop.js';
+import { createOriginMatcher, createRequestGuard } from './security/requestGuard.js';
 import { startDepositSync, stopDepositSync } from './services/depositSyncService.js';
 
 /**
@@ -46,10 +49,23 @@ export async function buildApp() {
 
   // CORS: only allow the configured browser origins (localhost frontend by
   // default). '*' keeps the previous reflect-any-origin behavior if needed.
-  const corsOrigin = config.CORS_ORIGINS.includes('*') ? true : config.CORS_ORIGINS;
+  // Same matcher as the CSRF guard, so 127.0.0.1:5173 / [::1]:5173 behave
+  // exactly like the configured localhost:5173 (all are this machine).
+  const isAllowedOrigin = createOriginMatcher(config.CORS_ORIGINS);
   await app.register(cors, {
-    origin: corsOrigin,
+    origin: config.CORS_ORIGINS.includes('*')
+      ? true
+      : (origin, callback) => callback(null, origin !== undefined && isAllowedOrigin(origin)),
   });
+
+  // DNS-rebinding (Host allow-list) + CSRF (foreign-origin writes) guard.
+  app.addHook(
+    'onRequest',
+    createRequestGuard({
+      allowedHosts: config.ALLOWED_HOSTS,
+      allowedOrigins: config.CORS_ORIGINS,
+    }),
+  );
 
   // Baseline security headers on every response (API + SSE).
   app.addHook('onSend', async (_request, reply) => {
@@ -60,6 +76,7 @@ export async function buildApp() {
   });
 
   // Open the SQLite database and run migrations before serving any traffic.
+  // Migrations also repair locked_balance = sum of open stakes (Phase 6.5.1).
   initDb();
 
   // Paper wallet management (POST /api/paper/deposit, POST /api/paper/withdraw, ...).
@@ -87,8 +104,12 @@ export async function buildApp() {
   // AI binary trading (signals + optional auto-execution of binary contracts).
   await app.register(binaryAiRoutes, { prefix: '/api' });
 
-  // Classic short-duration options (Phase 6.4).
+  // Classic short-duration options (Phase 6.4) + controls/settings (6.5.1).
   await app.register(optionRoutes, { prefix: '/api' });
+  await app.register(classicRoutes, { prefix: '/api' });
+
+  // User-editable Tron addresses + settings audit (Phase 6.5.1).
+  await app.register(walletAddressRoutes, { prefix: '/api' });
 
   // Tron status/health/fee endpoints + unified wallet records (Phase 6.4).
   await app.register(tronRoutes, { prefix: '/api' });

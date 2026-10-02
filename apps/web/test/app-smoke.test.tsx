@@ -140,7 +140,6 @@ function stubFetch(): void {
         { timestamp: Date.now(), open: 66050, high: 66200, low: 66000, close: 66100, volume: 1 },
       ],
     },
-    '/api/positions?status=OPEN': [],
     '/api/ai/decisions?limit=5': [],
     '/api/risk-events?limit=5': [],
     '/api/withdrawals': [],
@@ -211,9 +210,101 @@ function stubFetch(): void {
       minStakeUsd: 1,
       maxStakeUsd: 100,
       defaultStakeUsd: 10,
-      allowedDurationsSeconds: [60, 180, 300, 600],
-      defaultDurationSeconds: 300,
-      maxDurationSeconds: 600,
+      allowedDurationsSeconds: [60, 180, 300, 600, 900, 1800, 3600],
+      defaultDurationSeconds: 600,
+      maxDurationSeconds: 3600,
+    },
+    '/api/classic/settings': {
+      tradingEnabled: false,
+      defaultStakeUsd: 10,
+      maxStakeUsd: 100,
+      minStakeUsd: 1,
+      maxStakeCeilingUsd: 100,
+      defaultDurationSeconds: 600,
+      allowedDurationsSeconds: [60, 180, 300, 600, 900, 1800, 3600],
+      maxDurationSeconds: 3600,
+      dailyLossLimitPercent: 40,
+      totalLossLimitPercent: 0,
+      currentLockedBalance: 200,
+      availableBalance: 800,
+      openPositionCount: 1,
+    },
+    '/api/classic/status': {
+      tradingEnabled: false,
+      loopRunning: false,
+      blockedReason: 'TRADING_DISABLED',
+      blockedMessage: 'Classic Options trading is disabled.',
+      openPositions: 1,
+      lockedBalance: 200,
+      openClassicStakeUsd: 10,
+      availableBalance: 800,
+      marketDataFresh: true,
+      lastUpdated: new Date().toISOString(),
+    },
+    '/api/classic/history?limit=20': [
+      {
+        id: 7,
+        symbol: 'BTC-2026-10-02-67000-C',
+        side: 'CALL',
+        strikePrice: 67000,
+        expiry: '2026-10-02',
+        quantity: 1,
+        entryPremium: 10,
+        exitPremium: 67100,
+        status: 'CLOSED',
+        realizedPnl: 8,
+        openedAt: new Date(Date.now() - 700_000).toISOString(),
+        closedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        durationSeconds: 600,
+        expiresAt: new Date(Date.now() - 100_000).toISOString(),
+        settledAt: new Date().toISOString(),
+        settlementPrice: 67100,
+        settlementStatus: 'SETTLED',
+        settlementReason: 'expired: WIN at market price 67100',
+        source: 'MANUAL',
+        stakeUsd: 10,
+      },
+    ],
+    '/api/positions?status=OPEN': [
+      {
+        id: 8,
+        symbol: 'BTC-2026-10-02-67000-P',
+        side: 'PUT',
+        strikePrice: 67000,
+        expiry: '2026-10-02',
+        quantity: 1,
+        entryPremium: 10,
+        exitPremium: null,
+        status: 'OPEN',
+        realizedPnl: null,
+        openedAt: new Date().toISOString(),
+        closedAt: null,
+        createdAt: new Date().toISOString(),
+        durationSeconds: 600,
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        settledAt: null,
+        settlementPrice: null,
+        settlementStatus: 'OPEN',
+        settlementReason: null,
+        source: 'MANUAL',
+        stakeUsd: 10,
+      },
+    ],
+    '/api/wallet/addresses': {
+      usdcTradeAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      withdrawalDestinationAddress: '',
+      effectiveWithdrawalDestinationAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      trxFeeWalletAddress: 'TSimulatedFeeWalletAddressTRX0000000001',
+      usdcTradeAddressSource: 'DATABASE',
+      withdrawalDestinationAddressSource: 'NOT_SET',
+      trxFeeWalletAddressSource: 'SIMULATED',
+      updatedAt: new Date().toISOString(),
+      validationStatus: {
+        usdcTradeAddress: { valid: true, addressType: 'TRON' },
+        withdrawalDestinationAddress: null,
+        trxFeeWalletAddress: { valid: false, addressType: 'UNKNOWN', reason: 'Simulated placeholder' },
+      },
     },
     '/api/tron/status': {
       mode: 'SIMULATED',
@@ -380,9 +471,101 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Binary session gain')).toBeTruthy();
       expect(screen.getByText('Binary gain limit')).toBeTruthy();
       expect(screen.getByText('AI binary session profit')).toBeTruthy();
-      expect(screen.getByText(/Daily loss limit/)).toBeTruthy();
+      expect(screen.getAllByText(/Daily loss limit/).length).toBeGreaterThan(0);
       expect(screen.getByText('Loss limit floor')).toBeTruthy();
     });
+  });
+
+  it('Phase 6.5.1: Classic page has the trading panel, 10-min default, address, open + settled panels', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      // Trading control panel with Start/Stop + status + save — on the Classic page.
+      expect(screen.getByText('Classic Options trading')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Start Trading' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Stop Trading' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Save Settings' })).toBeTruthy();
+      expect(screen.getByTestId('classic-status').textContent).toBe('Trading Disabled');
+      expect(screen.getByText('Default stake (USDC)')).toBeTruthy();
+      expect(screen.getByText(/Total loss limit/)).toBeTruthy();
+    });
+    // Ticket + settings default to 10 minutes.
+    await waitFor(() => {
+      expect(screen.getAllByText('10 min').length).toBeGreaterThanOrEqual(2);
+    });
+    // Open positions (stake, countdown) + settled history + trade address.
+    await waitFor(() => {
+      expect(screen.getByText('Open positions (1)')).toBeTruthy();
+      expect(screen.getAllByText('Stake (locked)').length).toBeGreaterThan(0);
+      expect(screen.getByText(/^9m \d\ds$|^10m 00s$/)).toBeTruthy();
+      expect(screen.getByText('Recent settled positions')).toBeTruthy();
+      expect(screen.getByText('WIN')).toBeTruthy();
+      expect(screen.getByText('USDC Tron trade address')).toBeTruthy();
+      expect(screen.getByTestId('usdc-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+      expect(screen.getByText('Valid Tron address')).toBeTruthy();
+    });
+  });
+
+  it('Phase 6.5.1: Start Trading asks for confirmation', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    const start = await screen.findByRole('button', { name: 'Start Trading' });
+    await waitFor(() => expect((start as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(start);
+    await waitFor(() => {
+      expect(screen.getAllByText('Start Classic Options trading?').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('Phase 6.5.1: editing the trade address shows the warning and the edit form', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    await screen.findByText('USDC Tron trade address');
+    const edit = await screen.findByRole('button', { name: 'Edit' });
+    await waitFor(() => expect((edit as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(edit);
+    await waitFor(() => {
+      expect(screen.getByText(/Please verify the Tron address carefully/)).toBeTruthy();
+      expect(screen.getByText('USDC Tron trade address (TRC20)')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Save address' })).toBeTruthy();
+    });
+  });
+
+  it('Phase 6.5.1: Settings page no longer hosts the Classic Start Trading control', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByText('Settings'));
+    await waitFor(() => {
+      expect(screen.getByText('Classic Options trading has moved')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Open Classic Options' })).toBeTruthy();
+    });
+    expect(screen.queryByRole('button', { name: 'Start Trading' })).toBeNull();
+    expect(screen.queryByText('Option default duration (seconds)')).toBeNull();
   });
 
   it('renders the Binary Options page without crashing', async () => {
@@ -453,8 +636,12 @@ describe('App smoke test (blank-screen regression guard)', () => {
 
     // The TRX fee wallet panel is part of the page (address, reserve, simulate).
     await waitFor(() => {
-      expect(screen.getByText('TRX fee wallet')).toBeTruthy();
-      expect(screen.getByText('TSimulatedFeeWalletAddressTRX0000000001')).toBeTruthy();
+      // Card title of the fee panel (the trade-address panel has a row with the same label).
+      expect(screen.getAllByText('TRX fee wallet').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('USDC Tron trade address').length).toBeGreaterThan(0);
+      // Shown in both the fee panel and the trade-address panel.
+      expect(screen.getAllByText('TSimulatedFeeWalletAddressTRX0000000001').length).toBeGreaterThan(0);
+      expect(screen.getByTestId('usdc-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
       expect(screen.getByText('Simulate TRX fee deposit')).toBeTruthy();
       expect(screen.getByText('Recent TRX fee deposits')).toBeTruthy();
       expect(screen.getByText(/not credited as USDC trading balance/)).toBeTruthy();
@@ -466,6 +653,9 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Tron network status')).toBeTruthy();
       expect(screen.getByText('Deposit address')).toBeTruthy();
       expect(screen.getByText('Energy available')).toBeTruthy();
+      // Trade address panel is reachable from the Tron status modal too.
+      const modal = document.querySelector('.ant-modal') as HTMLElement;
+      expect(modal.textContent).toContain('USDC Tron trade address');
     });
   });
 
@@ -488,7 +678,8 @@ describe('App smoke test (blank-screen regression guard)', () => {
     // input (max = available) would clamp the typed amount to 0.
     await waitFor(() => {
       expect(screen.getByText('Withdraw USDC')).toBeTruthy();
-      expect(screen.getByText('$800.00')).toBeTruthy();
+      const modal = document.querySelector('.ant-modal') as HTMLElement;
+      expect(modal.textContent).toContain('$800.00');
     });
 
     // Fill amount + address; fireEvent.change handles React's value tracker

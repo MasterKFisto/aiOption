@@ -2,14 +2,10 @@ import { roundMoney } from '@aioption/shared';
 import type { AiDecision } from '@aioption/shared';
 
 import { config } from '../config.js';
-import {
-  getAccount,
-  listPositions,
-  logRiskEvent,
-  updateAccount,
-  updatePosition,
-} from '../db/repositories.js';
+import { getAccount, listPositions, logRiskEvent, updateAccount } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
+import { optionService } from '../options/optionService.js';
+import type { OptionService } from '../options/optionService.js';
 import type { WalletService } from '../services/walletService.js';
 
 export interface RiskEvaluation {
@@ -28,7 +24,16 @@ export interface RiskEvaluation {
  *      open positions, disable trading, and log a risk event
  */
 export class RiskEngine {
-  constructor(private readonly wallet: WalletService) {}
+  /**
+   * `wallet` is kept for API compatibility (callers and tests construct the
+   * engine with it); position funds are now released via OptionService.
+   */
+  constructor(
+    wallet: WalletService,
+    private readonly options: OptionService = optionService,
+  ) {
+    void wallet;
+  }
 
   /** Evaluates a decision against the current account state. */
   evaluate(decision: AiDecision): RiskEvaluation {
@@ -120,20 +125,12 @@ export class RiskEngine {
     return { triggered: true };
   }
 
+  /**
+   * Emergency close on a loss-limit trigger: refunds the EXACT stake of each
+   * open classic option (atomic claim + unlock per position), so locked
+   * funds are released 1:1 and no fee residue stays locked.
+   */
   private closeAllOpenPositions(): void {
-    const closedAt = new Date().toISOString();
-    for (const position of listPositions('OPEN')) {
-      updatePosition(position.id, {
-        status: 'CLOSED',
-        exitPremium: position.entryPremium,
-        realizedPnl: 0,
-        closedAt,
-      });
-      this.wallet.unlockFunds(
-        roundMoney(position.quantity * position.entryPremium),
-        `emergency close of ${position.symbol}`,
-      );
-      publishEvent('trade', { action: 'CLOSED', position: { ...position, status: 'CLOSED', closedAt } });
-    }
+    this.options.refundAllOpenPositions('loss limit reached — emergency close');
   }
 }

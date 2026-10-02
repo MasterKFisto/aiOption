@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { AccountSummaryBar } from '../components/AccountSummaryBar';
 import { ClassicTicket } from '../components/ClassicTicket';
+import { ClassicTradingPanel } from '../components/ClassicTradingPanel';
 import {
   OpenPositionsPanel,
   RecentDecisionsPanel,
@@ -12,12 +13,18 @@ import {
 import { DepositModal } from '../components/DepositModal';
 import { MarketPricePanel } from '../components/MarketPricePanel';
 import { PriceChart } from '../components/PriceChart';
+import { SettledPositionsPanel } from '../components/SettledPositionsPanel';
+import { TradeAddressPanel } from '../components/TradeAddressPanel';
 import { WithdrawModal } from '../components/WithdrawModal';
 import { api } from '../api/client';
 
 type Interval = '1m' | '5m' | '1h';
 
-/** Main dashboard: account summary, live market + chart, and activity panels. */
+/**
+ * Classic Options page (Phase 6.5.1 layout):
+ *   AccountSummaryBar → [Trade ticket | Trading control panel]
+ *   → Open positions → Settled history → market/chart → address & activity.
+ */
 export function DashboardPage() {
   const [interval, setInterval] = useState<Interval>('1m');
   const [depositOpen, setDepositOpen] = useState(false);
@@ -38,22 +45,34 @@ export function DashboardPage() {
       <AccountSummaryBar />
 
       <Row gutter={[16, 16]}>
+        {/* Row 1: trade ticket + trading control panel */}
+        <Col xs={24} lg={10} xl={8}>
+          <ClassicTicket currentPrice={currentPrice} />
+        </Col>
+        <Col xs={24} lg={14} xl={16}>
+          <ClassicTradingPanel />
+        </Col>
+        {/* Row 2: open positions (expiry + live countdown) */}
+        <Col span={24}>
+          <OpenPositionsPanel />
+        </Col>
+        {/* Row 3: settled history */}
+        <Col span={24}>
+          <SettledPositionsPanel />
+        </Col>
         <Col xs={24} xl={14}>
           <MarketPricePanel />
         </Col>
         <Col xs={24} xl={10}>
-          <ClassicTicket currentPrice={currentPrice} />
+          <TradeAddressPanel />
         </Col>
         <Col span={24}>
           <PriceChart interval={interval} onIntervalChange={setInterval} />
         </Col>
         <Col xs={24} lg={12}>
-          <OpenPositionsPanel />
-        </Col>
-        <Col xs={24} lg={6}>
           <RecentDecisionsPanel />
         </Col>
-        <Col xs={24} lg={6}>
+        <Col xs={24} lg={12}>
           <RiskEventsPanel />
         </Col>
       </Row>

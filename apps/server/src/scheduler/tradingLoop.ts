@@ -1,11 +1,12 @@
-import { roundMoney } from '@aioption/shared';
-import type { AiDecision, OptionSide, OrderResult, PlaceOrderParams, Ticker } from '@aioption/shared';
+import type { OptionSide } from '@aioption/shared';
 
-import { createPosition, getAccount, markAiDecisionExecuted } from '../db/repositories.js';
+import { getAccount, markAiDecisionExecuted } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { PaperExecutionAdapter, StaticPriceProvider } from '../execution/paperAdapter.js';
 import { logger } from '../logger.js';
 import { SimulatedMarketDataService } from '../market/marketDataService.js';
+import { getClassicSettingsStore } from '../options/classicSettings.js';
+import { optionService } from '../options/optionService.js';
+import type { OptionService } from '../options/optionService.js';
 import { RiskEngine } from '../risk/riskEngine.js';
 import type { MarketDataProvider } from '../strategy/signalEngine.js';
 import { SignalEngine } from '../strategy/signalEngine.js';
@@ -16,14 +17,14 @@ export interface TradingLoopOptions {
   market?: MarketDataProvider;
   engine?: SignalEngine;
   risk?: RiskEngine;
-  adapter?: PaperExecutionAdapter;
   wallet?: WalletService;
+  /** Classic option service used to open AI positions (injectable for tests). */
+  options?: OptionService;
 }
 
 export interface LoopExecution {
   symbol: string;
   decisionId: number;
-  order: OrderResult;
   positionId: number;
 }
 
@@ -36,32 +37,8 @@ export interface LoopRunResult {
 }
 
 const DEFAULT_INTERVAL_MS = 60_000;
-const round4 = (n: number): number => Math.round(n * 1e4) / 1e4;
 
-/** Converts a ticker symbol + decision into a concrete paper option order. */
-function buildOptionOrderPlan(
-  tickerSymbol: string,
-  decision: AiDecision,
-  market: MarketDataProvider,
-): { params: PlaceOrderParams; strikePrice: number; expiry: string } {
-  const ticker: Ticker = market.getTicker(tickerSymbol);
-  const base = tickerSymbol.split('/')[0] ?? tickerSymbol;
-  // Next-week ATM option: 7 days out, strike rounded to the asset step.
-  const expiry = new Date(Date.now() + 7 * 24 * 3_600_000).toISOString().slice(0, 10);
-  const strikeStep = base === 'BTC' ? 1000 : 100;
-  const strikePrice = Math.round(ticker.lastPrice / strikeStep) * strikeStep;
-  const optionType = decision.action === 'OPEN_CALL' ? 'C' : 'P';
-  const instrument = `${base}-${expiry}-${strikePrice}-${optionType}`;
-  // MVP premium model: ~3% of spot. Quantity scales the fixed trade size.
-  const premium = roundMoney(ticker.lastPrice * 0.03, 2);
-  const quantity = round4(decision.proposedTradeSizeUsd / premium);
-
-  return {
-    params: { symbol: instrument, side: 'BUY', quantity, price: premium, orderType: 'LIMIT' },
-    strikePrice,
-    expiry,
-  };
-}
+const isBtc = (symbol: string): boolean => (symbol.split('/')[0] ?? '').toUpperCase() === 'BTC';
 
 /**
  * The main scheduler: every `intervalMs` (default 1 minute) it fetches market
@@ -77,16 +54,16 @@ export class TradingLoop {
   private readonly market: MarketDataProvider;
   private readonly engine: SignalEngine;
   private readonly risk: RiskEngine;
-  private readonly adapter: PaperExecutionAdapter;
   private readonly wallet: WalletService;
+  private readonly options: OptionService;
 
   constructor(options: TradingLoopOptions = {}) {
     this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
     this.market = options.market ?? new SimulatedMarketDataService();
     this.wallet = options.wallet ?? new WalletService();
     this.engine = options.engine ?? new SignalEngine(this.market);
-    this.risk = options.risk ?? new RiskEngine(this.wallet);
-    this.adapter = options.adapter ?? new PaperExecutionAdapter(new StaticPriceProvider());
+    this.options = options.options ?? optionService;
+    this.risk = options.risk ?? new RiskEngine(this.wallet, this.options);
   }
 
   get isRunning(): boolean {
@@ -134,9 +111,8 @@ export class TradingLoop {
         return result;
       }
 
-      // 2. Requirement: only trade while trading_enabled is true in the DB.
-      const account = getAccount();
-      if (!account.tradingEnabled) {
+      // 2. Only trade while the master switch AND the classic flag are on.
+      if (!getAccount().tradingEnabled || !getClassicSettingsStore().classicFlag()) {
         return result;
       }
 
@@ -150,36 +126,31 @@ export class TradingLoop {
           continue;
         }
 
-        try {
-          const plan = buildOptionOrderPlan(symbol, decision, this.market);
-          const order = await this.adapter.placeOrder(plan.params);
-          if (order.status !== 'FILLED') {
-            result.skipped.push({ symbol, reason: order.message ?? 'order not filled' });
-            continue;
-          }
+        // Phase 6.5.1: classic options settle against the BTC/USDC live feed
+        // only — never open positions on other underlyings (e.g. ETH) that
+        // would be settled against the wrong price.
+        if (!isBtc(symbol)) {
+          result.skipped.push({ symbol, reason: 'classic options trade BTC/USDC only' });
+          continue;
+        }
 
-          const costUsd = roundMoney(order.filledQuantity * order.averagePrice + order.fee);
-          this.wallet.lockFunds(costUsd, `funds locked for ${order.symbol}`);
+        try {
           const side: OptionSide = decision.action === 'OPEN_CALL' ? 'CALL' : 'PUT';
-          const position = createPosition({
-            symbol: order.symbol,
+          // Opens through the shared OptionService so the AI path locks
+          // EXACTLY the stake (no fee drift), gets the fixed default duration
+          // and an explicit expiry, and is settled by the 1s scheduler.
+          const position = this.options.openOption({
+            asset: 'BTC/USDC',
             side,
-            strikePrice: plan.strikePrice,
-            expiry: plan.expiry,
-            quantity: order.filledQuantity,
-            entryPremium: order.averagePrice,
-            openedAt: order.filledAt,
+            stakeUsd: decision.proposedTradeSizeUsd,
+            durationSeconds: getClassicSettingsStore().defaultDurationSeconds(),
+            source: 'AI',
           });
           markAiDecisionExecuted(decision.id, position.id);
           publishEvent('trade', { action: 'OPENED', position });
 
-          result.executed.push({
-            symbol,
-            decisionId: decision.id,
-            order,
-            positionId: position.id,
-          });
-          logger.info({ symbol, positionId: position.id, orderId: order.orderId }, 'trade executed');
+          result.executed.push({ symbol, decisionId: decision.id, positionId: position.id });
+          logger.info({ symbol, positionId: position.id }, 'AI classic option executed');
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           result.skipped.push({ symbol, reason: message });

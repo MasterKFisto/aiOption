@@ -9,6 +9,7 @@ import type { TradingLoop } from '../src/scheduler/tradingLoop.js';
 import type { MarketDataProvider } from '../src/strategy/signalEngine.js';
 
 let TradingLoopCtor: typeof TradingLoop;
+let OptionServiceCtor: typeof import('../src/options/optionService.js')['OptionService'];
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aioption-loop-test-'));
 const dbPath = path.join(tmpDir, 'trading.db');
@@ -57,8 +58,19 @@ function stubMarket(annualizedVolPercent: number): MarketDataProvider {
   };
 }
 
+/** Always-fresh BTC price feed so the classic OptionService can open. */
+const freshFeed = {
+  getLatestTick: () => ({ price: 67000, timestamp: new Date().toISOString(), source: 'STUB' }),
+  getTickAtOrAfter: () => null,
+};
+
 function makeLoop(volPercent: number): TradingLoop {
-  return new TradingLoopCtor({ market: stubMarket(volPercent), wallet, intervalMs: 60_000 });
+  return new TradingLoopCtor({
+    market: stubMarket(volPercent),
+    wallet,
+    intervalMs: 60_000,
+    options: new OptionServiceCtor(freshFeed),
+  });
 }
 
 beforeAll(async () => {
@@ -67,6 +79,7 @@ beforeAll(async () => {
   connection = await import('../src/db/connection.js');
   repo = await import('../src/db/repositories.js');
   TradingLoopCtor = (await import('../src/scheduler/tradingLoop.js')).TradingLoop;
+  OptionServiceCtor = (await import('../src/options/optionService.js')).OptionService;
   const { WalletService } = await import('../src/services/walletService.js');
   connection.initDb();
   wallet = new WalletService();
@@ -104,7 +117,7 @@ describe('TradingLoop', () => {
     expect(repo.listPositions('OPEN')).toHaveLength(0);
   });
 
-  it('executes an approved trade: signal → risk → adapter → wallet + position + decision link', async () => {
+  it('executes an approved trade: signal → risk → OptionService → exact stake lock + decision link', async () => {
     wallet.deposit(1000, 'seed');
     repo.updateAccount({ tradingEnabled: true, startingEquity: 1000 });
 
@@ -114,29 +127,48 @@ describe('TradingLoop', () => {
     expect(result.executed).toHaveLength(1);
     const execution = result.executed[0]!;
     expect(execution.symbol).toBe('BTC/USDT');
-    expect(execution.order.status).toBe('FILLED');
 
-    // instrument symbol matches the ATM mapping: BTC-YYYY-MM-DD-{strike}-C
-    const position = repo.getPositionById(execution.positionId);
-    expect(position?.status).toBe('OPEN');
-    expect(position?.symbol).toMatch(/^BTC-\d{4}-\d{2}-\d{2}-\d+-C$/);
-    expect(position?.entryPremium).toBe(execution.order.averagePrice);
+    // Phase 6.5.1: a short-duration classic option with an explicit expiry.
+    const position = repo.getPositionById(execution.positionId)!;
+    expect(position.status).toBe('OPEN');
+    expect(position.symbol).toMatch(/^BTC-\d{4}-\d{2}-\d{2}-\d+-C$/);
+    expect(position.source).toBe('AI');
+    expect(position.durationSeconds).toBe(600); // default 10 minutes
+    expect(new Date(position.expiresAt!).getTime() - new Date(position.openedAt).getTime()).toBe(600_000);
+    expect(position.stakeUsd).toBe(10);
 
     // decision is marked executed and linked
     const executedDecision = repo.getAiDecisionById(execution.decisionId);
     expect(executedDecision?.executed).toBe(true);
-    expect(executedDecision?.positionId).toBe(position?.id);
+    expect(executedDecision?.positionId).toBe(position.id);
 
-    // wallet: funds locked for the ~$10 position (incl. fee)
+    // wallet: EXACTLY the 10 USDC stake is locked (no fee drift)
     const account = repo.getAccount();
-    expect(account.lockedBalance).toBeGreaterThan(9.9);
-    expect(account.lockedBalance).toBeLessThan(10.3);
-    expect(account.cashBalance).toBeCloseTo(1000 - account.lockedBalance, 6);
+    expect(account.lockedBalance).toBe(10);
+    expect(account.cashBalance).toBe(990);
+    expect(account.equity).toBe(1000);
 
-    // a lock transaction was recorded
     const txs = repo.listTransactions();
-    expect(txs[0]?.type).toBe('ADJUSTMENT');
-    expect(txs[0]?.amount).toBeCloseTo(-account.lockedBalance, 6);
+    expect(txs[0]?.type).toBe('OPTION_STAKE_LOCKED');
+    expect(txs[0]?.amount).toBe(-10);
+    expect(txs[0]?.positionId).toBe(position.id);
+  });
+
+  it('never opens classic options on non-BTC underlyings (settled against the BTC feed)', async () => {
+    wallet.deposit(1000, 'seed');
+    repo.updateAccount({ tradingEnabled: true, startingEquity: 1000 });
+    const market = stubMarket(50);
+    const ethMarket = { ...market, getSymbols: () => ['ETH/USDT'] };
+    const loop = new TradingLoopCtor({
+      market: ethMarket,
+      wallet,
+      intervalMs: 60_000,
+      options: new OptionServiceCtor(freshFeed),
+    });
+    const result = await loop.runOnce();
+    expect(result.executed).toHaveLength(0);
+    expect(result.skipped.some((s) => /BTC\/USDC only/.test(s.reason))).toBe(true);
+    expect(repo.getAccount().lockedBalance).toBe(0);
   });
 
   it('skips when the open position limit is reached', async () => {
@@ -178,7 +210,11 @@ describe('TradingLoop', () => {
     expect(repo.getAccount().tradingEnabled).toBe(false);
     expect(repo.listPositions('OPEN')).toHaveLength(0);
     expect(repo.listPositions('CLOSED').length).toBeGreaterThan(0);
-    expect(repo.listRiskEvents().length).toBe(1);
+    // Exactly the 10 USDC stake is released back to cash.
+    expect(repo.getAccount().lockedBalance).toBe(0);
+    const types = repo.listRiskEvents().map((e) => e.type);
+    expect(types.filter((t) => t === 'LOSS_LIMIT_DAILY')).toHaveLength(1);
+    expect(types).toContain('CLASSIC_EMERGENCY_REFUND');
   });
 
   it('start and stop toggle the scheduler', () => {

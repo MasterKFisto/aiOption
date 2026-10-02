@@ -4,6 +4,7 @@ import { Alert, Descriptions, Modal, Spin, Tag } from 'antd';
 import type { TronStatus } from '@aioption/shared';
 
 import { api } from '../api/client';
+import { TradeAddressPanel } from './TradeAddressPanel';
 import { TrxFeeDepositPanel } from './TrxFeeDepositPanel';
 
 const CONNECTION_COLORS: Record<TronStatus['connectionStatus'], string> = {
@@ -57,7 +58,12 @@ export function TronStatusModal({ open, onClose }: { open: boolean; onClose: () 
             <Descriptions.Item label="Last check">
               {status.lastCheckedAt ? new Date(status.lastCheckedAt).toLocaleString() : 'never'}
             </Descriptions.Item>
-            <Descriptions.Item label="Deposit address">{status.depositAddress || '—'}</Descriptions.Item>
+            <Descriptions.Item label="Deposit address">
+              {status.depositAddress || '—'}
+              {status.depositAddressSource && (
+                <Tag style={{ marginLeft: 8 }}>{status.depositAddressSource}</Tag>
+              )}
+            </Descriptions.Item>
             <Descriptions.Item label="Hot wallet">
               {status.hotWalletAddress || 'not configured'}
             </Descriptions.Item>
@@ -89,6 +95,9 @@ export function TronStatusModal({ open, onClose }: { open: boolean; onClose: () 
               style={{ marginTop: 8 }}
             />
           ))}
+          <div style={{ marginTop: 16 }}>
+            <TradeAddressPanel compact />
+          </div>
           <div style={{ marginTop: 16 }}>
             <TrxFeeDepositPanel compact />
           </div>

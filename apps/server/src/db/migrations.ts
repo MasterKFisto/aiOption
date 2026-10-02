@@ -218,6 +218,22 @@ CREATE TABLE IF NOT EXISTS binary_session_stats (
   gain_limit_reason   TEXT
 );
 
+-- Phase 6.5.1: user-editable settings (DB values override env defaults).
+CREATE TABLE IF NOT EXISTS app_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Phase 6.5.1: audit log of every settings/address change.
+CREATE TABLE IF NOT EXISTS settings_audit (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  key        TEXT NOT NULL,
+  old_value  TEXT,
+  new_value  TEXT,
+  changed_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tron_fee_deposits (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   network        TEXT NOT NULL DEFAULT 'TRON',
@@ -275,6 +291,13 @@ export function runMigrations(db: Database.Database): void {
   }
   if (!hasColumn(db, 'positions', 'source')) {
     db.exec("ALTER TABLE positions ADD COLUMN source TEXT NOT NULL DEFAULT 'MANUAL'");
+  }
+  // Phase 6.5.1: exact per-position stake + option type.
+  if (!hasColumn(db, 'positions', 'stake_usd')) {
+    db.exec('ALTER TABLE positions ADD COLUMN stake_usd REAL');
+  }
+  if (!hasColumn(db, 'positions', 'option_type')) {
+    db.exec("ALTER TABLE positions ADD COLUMN option_type TEXT NOT NULL DEFAULT 'CLASSIC'");
   }
   // Phase 6.4: withdrawal fee columns.
   if (!hasColumn(db, 'withdrawals', 'fee_estimate_trx')) {
@@ -336,17 +359,7 @@ export function runMigrations(db: Database.Database): void {
     db.exec('ALTER TABLE withdrawals ADD COLUMN fee_reserve_error TEXT');
   }
 
-  // Backfill: open positions without an expiry get opened_at + 10 minutes.
-  db.prepare(
-    `UPDATE positions SET expires_at = datetime(opened_at, '+600 seconds')
-     WHERE status = 'OPEN' AND (expires_at IS NULL OR expires_at = '')`,
-  ).run();
-  // Historical closed positions: fill expires_at from opened_at when missing
-  // (display-only; never touched otherwise).
-  db.prepare(
-    `UPDATE positions SET expires_at = datetime(opened_at, '+600 seconds')
-     WHERE (expires_at IS NULL OR expires_at = '')`,
-  ).run();
+  migrateClassicPositions(db);
 
   // Schema drift fixes for databases created before the signal-engine columns existed.
   if (!hasColumn(db, 'ai_decisions', 'signal')) {
@@ -372,6 +385,142 @@ export function runMigrations(db: Database.Database): void {
   db.prepare(
     'UPDATE account SET loss_limit_percent = 40 WHERE loss_limit_percent = 5',
   ).run();
+
+  // Phase 6.5.1 (one-time): the classic default duration moved from 5 to 10
+  // minutes. Guarded by a marker so a later explicit 300s choice survives.
+  if (!getSettingRaw(db, MIGRATION_6_5_1_MARKER)) {
+    db.prepare(
+      'UPDATE account SET option_default_duration_seconds = 600 WHERE option_default_duration_seconds = 300',
+    ).run();
+    db.prepare(
+      'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
+    ).run(MIGRATION_6_5_1_MARKER, 'done', new Date().toISOString());
+  }
+
+  // Locked balance must equal the sum of open stakes (classic + binary).
+  recalculateLockedBalance(db);
+}
+
+const MIGRATION_6_5_1_MARKER = 'migration_6_5_1_classic_defaults';
+
+/** ISO-8601 UTC timestamp expression for SQLite (matches toISOString()). */
+const ISO = "'%Y-%m-%dT%H:%M:%fZ'";
+
+/**
+ * Phase 6.5.1 classic-position fixes. Idempotent, and never alters the
+ * outcome fields (status, PnL, settlement) of historical CLOSED positions.
+ */
+function migrateClassicPositions(db: Database.Database): void {
+  // Exact stake for every position that predates the stake_usd column.
+  db.prepare(
+    'UPDATE positions SET stake_usd = ROUND(entry_premium * quantity, 2) WHERE stake_usd IS NULL',
+  ).run();
+
+  // OPEN positions: fixed duration (default 10 minutes) ...
+  db.prepare(
+    `UPDATE positions SET duration_seconds = 600
+     WHERE status = 'OPEN' AND (duration_seconds IS NULL OR duration_seconds <= 0)`,
+  ).run();
+  // ... expiry = opened_at + duration (opened_at missing/unparseable → now + duration) ...
+  db.prepare(
+    `UPDATE positions SET expires_at = CASE
+        WHEN julianday(opened_at) IS NOT NULL
+          THEN strftime(${ISO}, opened_at, '+' || duration_seconds || ' seconds')
+        ELSE strftime(${ISO}, 'now', '+' || duration_seconds || ' seconds')
+      END
+     WHERE status = 'OPEN' AND (expires_at IS NULL OR expires_at = '' OR julianday(expires_at) IS NULL)`,
+  ).run();
+  // ... legacy 'YYYY-MM-DD HH:MM:SS' expiries (UTC, no zone) → ISO with Z so
+  // browsers never misread them as local time ...
+  db.prepare(
+    `UPDATE positions SET expires_at = strftime(${ISO}, expires_at)
+     WHERE status = 'OPEN' AND expires_at NOT LIKE '%T%'`,
+  ).run();
+  // ... and an explicit OPEN settlement status. A row left in SETTLING can
+  // only come from a crash before the (transactional) settlement committed,
+  // so it is safe to make it claimable again.
+  db.prepare(
+    `UPDATE positions SET settlement_status = 'OPEN'
+     WHERE status = 'OPEN' AND (settlement_status IS NULL OR settlement_status = 'SETTLING')`,
+  ).run();
+
+  // Historical CLOSED positions: display-only expiry backfill when missing.
+  db.prepare(
+    `UPDATE positions SET expires_at = strftime(${ISO}, opened_at, '+600 seconds')
+     WHERE status = 'CLOSED' AND (expires_at IS NULL OR expires_at = '')
+       AND julianday(opened_at) IS NOT NULL`,
+  ).run();
+}
+
+export interface LockedBalanceRepair {
+  repaired: boolean;
+  previousLocked: number;
+  expectedLocked: number;
+  /** Positive = funds released back to available cash. */
+  releasedToCash: number;
+}
+
+/**
+ * Recalculates the locked balance from open positions: locked must equal the
+ * sum of OPEN classic stakes plus OPEN binary stakes. The difference moves
+ * between locked and cash, so total equity is never changed by a repair.
+ * Runs inside a transaction; logs a risk event when a repair was needed.
+ */
+export function recalculateLockedBalance(db: Database.Database): LockedBalanceRepair {
+  return db.transaction((): LockedBalanceRepair => {
+    const account = db
+      .prepare<[], { cash_balance: number; locked_balance: number; equity: number }>(
+        'SELECT cash_balance, locked_balance, equity FROM account WHERE id = 1',
+      )
+      .get();
+    if (!account) {
+      return { repaired: false, previousLocked: 0, expectedLocked: 0, releasedToCash: 0 };
+    }
+    const classic =
+      db
+        .prepare<[], { total: number | null }>(
+          "SELECT SUM(COALESCE(stake_usd, ROUND(entry_premium * quantity, 2))) AS total FROM positions WHERE status = 'OPEN'",
+        )
+        .get()?.total ?? 0;
+    const binary =
+      db
+        .prepare<[], { total: number | null }>(
+          "SELECT SUM(stake_usd) AS total FROM binary_contracts WHERE status = 'OPEN'",
+        )
+        .get()?.total ?? 0;
+    const round2 = (n: number): number => Math.round(n * 100) / 100;
+    const previousLocked = round2(account.locked_balance);
+    // Reserving more cash than is available would make cash negative; in
+    // that (corrupt-ledger) case reserve only what exists.
+    const expectedLocked = round2(
+      Math.min(classic + binary, previousLocked + Math.max(0, account.cash_balance)),
+    );
+    const delta = round2(previousLocked - expectedLocked);
+    if (Math.abs(delta) < 0.005) {
+      return { repaired: false, previousLocked, expectedLocked, releasedToCash: 0 };
+    }
+    const nowIso = new Date().toISOString();
+    db.prepare(
+      'UPDATE account SET locked_balance = ?, cash_balance = ?, updated_at = ? WHERE id = 1',
+    ).run(expectedLocked, round2(account.cash_balance + delta), nowIso);
+    db.prepare(
+      `INSERT INTO risk_events (type, message, equity_at_trigger, triggered_at)
+       VALUES ('CLASSIC_LOCKED_BALANCE_REPAIRED', ?, ?, ?)`,
+    ).run(
+      `locked balance repaired: ${previousLocked} → ${expectedLocked} (sum of open stakes); ` +
+        `${delta >= 0 ? 'released' : 'reserved'} ${Math.abs(delta)} ${delta >= 0 ? 'to' : 'from'} available cash`,
+      account.equity,
+      nowIso,
+    );
+    return { repaired: true, previousLocked, expectedLocked, releasedToCash: delta };
+  })();
+}
+
+function getSettingRaw(db: Database.Database, key: string): string | null {
+  const row = db
+    .prepare<[string], { value: string }>('SELECT value FROM app_settings WHERE key = ?')
+    .get(key);
+  return row?.value ?? null;
 }
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {

@@ -1,14 +1,16 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { optionService } from './optionService.js';
+import { CLASSIC_ERRORS, ClassicOptionError, optionService } from './optionService.js';
 import type { OptionService } from './optionService.js';
 
+// Duration is REQUIRED (no coercion of missing values to a default); its
+// allowed set and 60-minute cap are enforced by OptionService.validateDuration.
 const openSchema = z.object({
-  asset: z.string().trim().min(1).default('BTC/USDC'),
+  asset: z.literal('BTC/USDC').default('BTC/USDC'),
   side: z.enum(['CALL', 'PUT']),
-  stakeUsd: z.coerce.number().positive(),
-  durationSeconds: z.coerce.number().int().positive(),
+  stakeUsd: z.number().finite().positive(),
+  durationSeconds: z.number(),
 });
 
 /**
@@ -26,7 +28,11 @@ export async function optionRoutes(
   app.post('/options/open', async (request, reply) => {
     const parsed = openSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: 'invalid request body', issues: parsed.error.issues });
+      const durationIssue = parsed.error.issues.some((issue) => issue.path[0] === 'durationSeconds');
+      return reply.code(400).send({
+        error: durationIssue ? CLASSIC_ERRORS.invalidDuration : 'invalid request body',
+        issues: parsed.error.issues,
+      });
     }
     try {
       const position = service.openOption({
@@ -37,9 +43,11 @@ export async function optionRoutes(
       });
       return reply.code(201).send(position);
     } catch (err) {
-      return reply
-        .code(400)
-        .send({ error: err instanceof Error ? err.message : 'open failed' });
+      if (err instanceof ClassicOptionError) {
+        return reply.code(400).send({ error: err.message, code: err.code });
+      }
+      request.log.error({ err }, 'classic open failed');
+      return reply.code(500).send({ error: 'open failed' });
     }
   });
 }

@@ -1,28 +1,51 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Col, InputNumber, Row, Segmented, Space, Tag, Typography, message } from 'antd';
-import { useState } from 'react';
+import { Alert, Button, Card, Col, InputNumber, Row, Select, Space, Segmented, Tag, Typography, message } from 'antd';
+import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
+import { durationLabel } from './ClassicTradingPanel';
 
 const QUICK_STAKES = [10, 25, 50, 100];
+const DEFAULT_DURATIONS = [60, 180, 300, 600, 900, 1800, 3600];
 
-/** Classic option ticket: CALL/PUT with stake (≤100 USDC) + 1/3/5/10m durations. */
+/**
+ * Classic option ticket: CALL/PUT, stake (≤ max stake) and a fixed duration
+ * (1–60 minutes, default 10). Opening locks ONLY the chosen stake.
+ */
 export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
   const queryClient = useQueryClient();
   const [messageApi, contextHolder] = message.useMessage();
 
-  const [side, setSide] = useState<'CALL' | 'PUT'>('CALL');
-  const [stake, setStake] = useState<number>(10);
-  const [duration, setDuration] = useState<number>(300);
-
   const { data: config } = useQuery({ queryKey: ['options-config'], queryFn: api.optionsConfig });
   const { data: summary } = useQuery({ queryKey: ['summary'], queryFn: api.summary });
+  const { data: status } = useQuery({ queryKey: ['classic-status'], queryFn: api.classicStatus });
+
+  const [side, setSide] = useState<'CALL' | 'PUT'>('CALL');
+  const [stake, setStake] = useState<number>(10);
+  const [duration, setDuration] = useState<number>(600);
+  const [initialized, setInitialized] = useState(false);
+
+  // Adopt the saved defaults (stake + 10-minute duration) once loaded.
+  useEffect(() => {
+    if (config && !initialized) {
+      setStake(config.defaultStakeUsd);
+      setDuration(config.defaultDurationSeconds);
+      setInitialized(true);
+    }
+  }, [config, initialized]);
 
   const maxStake = config?.maxStakeUsd ?? 100;
   const minStake = config?.minStakeUsd ?? 1;
-  const durations = config?.allowedDurationsSeconds ?? [60, 180, 300, 600];
+  const durations = config?.allowedDurationsSeconds ?? DEFAULT_DURATIONS;
   const available = summary?.account.cashBalance ?? 0;
   const profit = Number((stake * 0.8).toFixed(2));
+  const tradingEnabled = status?.tradingEnabled ?? summary?.account.tradingEnabled ?? false;
+  const ticketError =
+    stake > maxStake
+      ? `Maximum option stake is ${maxStake} USDC.`
+      : stake > available
+        ? 'Insufficient available balance.'
+        : null;
 
   const openMutation = useMutation({
     mutationFn: api.openOption,
@@ -32,12 +55,10 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
       );
       void queryClient.invalidateQueries({ queryKey: ['positions'] });
       void queryClient.invalidateQueries({ queryKey: ['summary'] });
+      void queryClient.invalidateQueries({ queryKey: ['classic-status'] });
     },
     onError: (err) => messageApi.error((err as Error).message),
   });
-
-  const durationLabel = (seconds: number) =>
-    seconds >= 60 ? `${seconds / 60}m` : `${seconds}s`;
 
   return (
     <Card title="Classic Raise" size="small">
@@ -68,11 +89,12 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
             Duration
           </Typography.Text>
           <div>
-            <Segmented
-              block
-              options={durations.map((d) => ({ label: durationLabel(d), value: String(d) }))}
-              value={String(duration)}
-              onChange={(value) => setDuration(Number(value))}
+            <Select
+              aria-label="Option duration"
+              style={{ width: '100%' }}
+              options={durations.map((d) => ({ label: durationLabel(d), value: d }))}
+              value={duration}
+              onChange={(value: number) => setDuration(value)}
             />
           </div>
         </Col>
@@ -113,11 +135,26 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
           <div style={{ color: '#cf1322' }}>-${stake.toFixed(2)}</div>
         </Col>
         <Col span={24}>
+          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+            Available ${available.toFixed(2)} · only the stake is locked
+          </Typography.Text>
+        </Col>
+        {ticketError && (
+          <Col span={24}>
+            <Alert type="error" showIcon message={ticketError} />
+          </Col>
+        )}
+        {!tradingEnabled && (
+          <Col span={24}>
+            <Alert type="info" showIcon message="Press Start Trading in the panel to enable Classic Options." />
+          </Col>
+        )}
+        <Col span={24}>
           <Button
             type="primary"
             block
             loading={openMutation.isPending}
-            disabled={stake > available}
+            disabled={ticketError !== null || !tradingEnabled}
             onClick={() =>
               openMutation.mutate({
                 asset: 'BTC/USDC',

@@ -218,7 +218,7 @@ export default function App() {
           {view === 'positions' && <PositionsPage />}
           {view === 'decisions' && <DecisionsPage />}
           {view === 'wallet' && <WalletRecordsPage />}
-          {view === 'settings' && <SettingsPage />}
+          {view === 'settings' && <SettingsPage onOpenClassic={() => setView('classic')} />}
         </Content>
       </Layout>
 

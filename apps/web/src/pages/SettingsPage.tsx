@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Divider, Form, InputNumber, Switch, Typography, message } from 'antd';
+import { Alert, Button, Card, Divider, Form, InputNumber, Switch, Typography, message } from 'antd';
 import { useEffect } from 'react';
 
 import { api } from '../api/client';
 import type { RiskSettingsUpdate } from '../api/client';
 import { emitUiEvent } from '../api/events';
 
-export function SettingsPage() {
+export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } = {}) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<RiskSettingsUpdate>();
   const [messageApi, contextHolder] = message.useMessage();
@@ -23,8 +23,6 @@ export function SettingsPage() {
         lossLimitPercent: summary.account.lossLimitPercent,
         fixedTradeSizeUsd: summary.account.fixedTradeSizeUsd,
         postTradePromptEnabled: summary.account.postTradePromptEnabled,
-        maxOptionStakeUsd: summary.account.maxOptionStakeUsd,
-        optionDefaultDurationSeconds: summary.account.optionDefaultDurationSeconds,
       });
     }
   }, [summary, form]);
@@ -54,7 +52,7 @@ export function SettingsPage() {
     onError: (err) => messageApi.error((err as Error).message),
   });
 
-  const tradingEnabled = summary?.loopRunning ?? false;
+  const tradingEnabled = summary?.account.tradingEnabled ?? false;
 
   return (
     <div style={{ maxWidth: 480 }}>
@@ -79,20 +77,6 @@ export function SettingsPage() {
           >
             <InputNumber min={0} max={80} style={{ width: '100%' }} />
           </Form.Item>
-          <Form.Item
-            name="maxOptionStakeUsd"
-            label="Max option stake (USD) — max 100"
-            rules={[{ required: true }]}
-          >
-            <InputNumber min={1} max={100} style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="optionDefaultDurationSeconds"
-            label="Option default duration (seconds)"
-            rules={[{ required: true }]}
-          >
-            <InputNumber min={60} max={600} step={60} style={{ width: '100%' }} />
-          </Form.Item>
           <Form.Item name="fixedTradeSizeUsd" label="Fixed trade size (USD)" rules={[{ required: true }]}>
             <InputNumber min={0.01} style={{ width: '100%' }} />
           </Form.Item>
@@ -112,9 +96,27 @@ export function SettingsPage() {
 
       <Divider />
 
-      <Card title="Trading">
+      <Card title="Classic Options">
+        <Alert
+          type="info"
+          showIcon
+          message="Classic Options trading has moved"
+          description="Start/Stop, stake limits, the default duration (1–60 minutes) and loss limits are now on the Classic Options page, together with the USDC Tron trade address."
+          action={
+            onOpenClassic ? (
+              <Button size="small" type="primary" onClick={onOpenClassic}>
+                Open Classic Options
+              </Button>
+            ) : undefined
+          }
+        />
+      </Card>
+
+      <Divider />
+
+      <Card title="Global trading switch (advanced)">
         <Typography.Paragraph>
-          Trading status:{' '}
+          Master switch (Classic + Binary):{' '}
           <Switch
             checked={tradingEnabled}
             loading={toggleMutation.isPending}
@@ -124,8 +126,8 @@ export function SettingsPage() {
           />
         </Typography.Paragraph>
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
-          Starting the loop requires paper funds (use the wallet API to deposit). The loop then
-          evaluates signals every minute and executes approved trades automatically.
+          Turning this off halts all new trades (Classic and Binary). To control Classic Options
+          only, use Start/Stop on the Classic Options page.
         </Typography.Paragraph>
       </Card>
     </div>

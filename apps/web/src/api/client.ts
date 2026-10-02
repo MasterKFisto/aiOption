@@ -1,4 +1,10 @@
 import type {
+  AddressValidation,
+  ClassicSettings,
+  ClassicSettingsUpdate,
+  ClassicStatus,
+  WalletAddresses,
+  WalletAddressesUpdate,
   AccountSummary,
   AiBinaryDecision,
   AiBinarySettingsUpdate,
@@ -191,5 +197,30 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amountTrx }),
+    }),
+  /* ----------------------------- Phase 6.5.1 ----------------------------- */
+  classicSettings: () => request<ClassicSettings>('/api/classic/settings'),
+  updateClassicSettings: (patch: ClassicSettingsUpdate) =>
+    request<ClassicSettings>('/api/classic/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  classicStatus: () => request<ClassicStatus>('/api/classic/status'),
+  classicStart: () => request<ClassicStatus>('/api/classic/trading/start', { method: 'POST' }),
+  classicStop: () => request<ClassicStatus>('/api/classic/trading/stop', { method: 'POST' }),
+  classicHistory: (limit = 20) => request<Position[]>(`/api/classic/history?limit=${limit}`),
+  walletAddresses: () => request<WalletAddresses>('/api/wallet/addresses'),
+  updateWalletAddresses: (patch: WalletAddressesUpdate) =>
+    request<WalletAddresses>('/api/wallet/addresses', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }),
+  validateAddress: (address: string) =>
+    request<AddressValidation>('/api/wallet/addresses/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
     }),
 };

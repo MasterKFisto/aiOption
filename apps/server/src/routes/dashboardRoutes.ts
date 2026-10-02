@@ -6,7 +6,13 @@ import type { AccountSummary } from '@aioption/shared';
 import { binaryNetPnl } from '../binary/binaryRepository.js';
 import { getBinarySessionService } from '../binary/binarySessionService.js';
 import { latestAiSessionProfit } from '../binary-ai/binaryAiRepository.js';
-import { getAccount, listAiDecisions, listPositions, listRiskEvents } from '../db/repositories.js';
+import {
+  getAccount,
+  listAiDecisions,
+  listPositions,
+  listRiskEvents,
+  positionStake,
+} from '../db/repositories.js';
 import { liveMarket } from '../market/liveMarketDataService.js';
 import { tradingLoop } from '../scheduler/tradingLoop.js';
 
@@ -63,7 +69,8 @@ export async function dashboardRoutes(app: FastifyInstance): Promise<void> {
     const currentPrice = tick?.price ?? 0;
     const nowMs = Date.now();
     return positions.map((position) => {
-      const stake = roundMoney(position.entryPremium * position.quantity);
+      // Exact locked stake (Phase 6.5.1), never premium × qty + fees.
+      const stake = positionStake(position);
       const expiresAtMs = position.expiresAt ? new Date(position.expiresAt).getTime() : null;
       const secondsRemaining =
         position.status === 'OPEN' && expiresAtMs ? Math.max(Math.ceil((expiresAtMs - nowMs) / 1000), 0) : 0;

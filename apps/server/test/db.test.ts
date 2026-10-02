@@ -30,7 +30,7 @@ describe('connection + migrations', () => {
     const account = repo.getAccount();
     expect(account.lossLimitPercent).toBe(40);
     expect(account.maxOptionStakeUsd).toBe(100);
-    expect(account.optionDefaultDurationSeconds).toBe(300);
+    expect(account.optionDefaultDurationSeconds).toBe(600); // Phase 6.5.1: 10 minutes
     expect(account.binarySessionGainLimitEnabled).toBe(true);
     expect(account.binaryMaxSessionGainUsdc).toBe(50);
     expect(account.mode).toBe('PAPER');

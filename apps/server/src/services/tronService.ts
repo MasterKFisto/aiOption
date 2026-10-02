@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { config } from '../config.js';
+import { SIMULATED_DEPOSIT_ADDRESS, resolveUsdcTradeAddress } from './appSettings.js';
 import { TronGridTronService } from './tronGridService.js';
 
 /** An incoming USDC TRC20 transfer observed on-chain. */
@@ -45,7 +46,7 @@ export interface TronService {
 }
 
 /** Fixed simulated deposit address (34-char base58, T-prefixed). */
-export const SIMULATED_DEPOSIT_ADDRESS = 'TSimulatedAiOptionDepositAddressUSDC1';
+export { SIMULATED_DEPOSIT_ADDRESS };
 
 /**
  * Simulated Tron service: generates fake transfers on demand and never talks
@@ -68,8 +69,9 @@ export class SimulatedTronService implements TronService {
     return transfer;
   }
 
+  /** DB-stored trade address (Phase 6.5.1) → env → simulated placeholder. */
   private address(): string {
-    return config.TRON_DEPOSIT_ADDRESS || SIMULATED_DEPOSIT_ADDRESS;
+    return resolveUsdcTradeAddress().address || SIMULATED_DEPOSIT_ADDRESS;
   }
 
   async getDepositAddress(): Promise<string> {

@@ -55,6 +55,11 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
             <Descriptions.Item label="Token standard">TRC20</Descriptions.Item>
             <Descriptions.Item label="Deposit address">
               <Typography.Text copyable>{info.address}</Typography.Text>
+              {info.addressSource === 'SIMULATED' && (
+                <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                  Simulated placeholder — set your own address under Classic Options → USDC Tron trade address.
+                </Typography.Text>
+              )}
             </Descriptions.Item>
             <Descriptions.Item label="Min confirmations">
               {info.requiredConfirmations}

@@ -5,6 +5,7 @@ import { roundMoney } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { getAccount, listDeposits } from '../db/repositories.js';
+import { resolveUsdcTradeAddress } from '../services/appSettings.js';
 import { getLastSyncedAt, syncDepositsOnce } from '../services/depositSyncService.js';
 import { tronService } from '../services/tronService.js';
 import type { SimulatedTronService } from '../services/tronService.js';
@@ -18,7 +19,9 @@ const simulateSchema = z.object({
  */
 export async function depositRoutes(app: FastifyInstance): Promise<void> {
   app.get('/deposits/info', async () => ({
+    // UI-saved trade address (Phase 6.5.1) → env → simulated placeholder.
     address: await tronService.getDepositAddress(),
+    addressSource: resolveUsdcTradeAddress().source,
     network: 'TRON',
     asset: 'USDC',
     tokenStandard: 'TRC20',

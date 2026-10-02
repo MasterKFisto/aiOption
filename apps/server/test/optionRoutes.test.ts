@@ -58,7 +58,7 @@ beforeAll(async () => {
     lockedBalance: 0,
     startingEquity: 500,
     maxOptionStakeUsd: 100,
-    optionDefaultDurationSeconds: 300,
+    optionDefaultDurationSeconds: 600,
   });
 });
 
@@ -76,9 +76,9 @@ describe('option routes', () => {
       minStakeUsd: 1,
       maxStakeUsd: 100,
       defaultStakeUsd: 10,
-      allowedDurationsSeconds: [60, 180, 300, 600],
-      defaultDurationSeconds: 300,
-      maxDurationSeconds: 600,
+      allowedDurationsSeconds: [60, 180, 300, 600, 900, 1800, 3600],
+      defaultDurationSeconds: 600,
+      maxDurationSeconds: 3600,
     });
   });
 

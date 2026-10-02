@@ -73,7 +73,10 @@ export type RiskEventType =
   | 'BINARY_SESSION_GAIN_LIMIT_REACHED'
   | 'BINARY_SESSION_GAIN_LIMIT_BLOCK'
   | 'BINARY_SESSION_RESET'
-  | 'AI_BINARY_STOPPED_BY_SESSION_GAIN_LIMIT';
+  | 'AI_BINARY_STOPPED_BY_SESSION_GAIN_LIMIT'
+  | 'CLASSIC_LOCKED_BALANCE_REPAIRED'
+  | 'CLASSIC_TOTAL_LOSS_LIMIT_BLOCK'
+  | 'CLASSIC_EMERGENCY_REFUND';
 
 /** Single-row account record (always id = 1): equity, balances, limits, settings. */
 export interface Account {
@@ -158,6 +161,8 @@ export interface Position {
   potentialProfitUsd?: number;
   /** Potential loss (the stake) if the option loses, in USD. */
   potentialLossUsd?: number;
+  /** Option type stored for classic options (Phase 6.5.1): CLASSIC | LEGACY. */
+  optionType?: string;
 }
 
 /** A wallet movement (deposit, withdrawal, trade settlement, fee…). */
@@ -301,6 +306,8 @@ export interface Withdrawal {
 /** Static deposit information for the UI. */
 export interface DepositInfo {
   address: string;
+  /** Where the address comes from (Phase 6.5.1): DATABASE | ENVIRONMENT | SIMULATED | NOT_SET. */
+  addressSource?: AddressSource;
   network: 'TRON';
   asset: 'USDC';
   tokenStandard: 'TRC20';
@@ -323,7 +330,9 @@ export type ApiEventType =
   | 'ai-binary'
   | 'tron'
   | 'wallet'
-  | 'options';
+  | 'options'
+  | 'classic'
+  | 'settings';
 
 /** Server-sent event pushed to the frontend. */
 export interface ApiEvent {
@@ -374,6 +383,9 @@ export type NewPosition = Omit<
   durationSeconds?: number | null;
   expiresAt?: string | null;
   source?: string;
+  /** Exact stake locked for this position (Phase 6.5.1). */
+  stakeUsd?: number;
+  optionType?: string;
 };
 
 export type PositionUpdate = Partial<
@@ -425,6 +437,8 @@ export interface TronStatus {
   withdrawalsEnabled: boolean;
   liveWithdrawalsEnabled: boolean;
   depositAddress: string;
+  /** Where depositAddress comes from (Phase 6.5.1). */
+  depositAddressSource?: AddressSource;
   hotWalletAddress: string;
   usdcContractAddress: string;
   requiredConfirmations: number;
@@ -546,5 +560,104 @@ export interface TrxFeeDeposit {
   createdAt: string;
   creditedAt: string | null;
   notes: string | null;
+}
+
+
+/* --------------------------- Phase 6.5.1 types ----------------------------- */
+
+/** Why new classic options are currently blocked (null = not blocked). */
+export type ClassicBlockedReason =
+  | 'TRADING_DISABLED'
+  | 'LOSS_LIMIT_REACHED'
+  | 'DAILY_LOSS_LIMIT_REACHED'
+  | 'MARKET_DATA_STALE'
+  | 'RISK_ENGINE_BLOCKED';
+
+/** Classic Options settings (GET/PUT /api/classic/settings). */
+export interface ClassicSettings {
+  tradingEnabled: boolean;
+  defaultStakeUsd: number;
+  maxStakeUsd: number;
+  minStakeUsd: number;
+  /** Hard ceiling for maxStakeUsd (configuration). */
+  maxStakeCeilingUsd: number;
+  defaultDurationSeconds: number;
+  allowedDurationsSeconds: number[];
+  maxDurationSeconds: number;
+  dailyLossLimitPercent: number;
+  /** 0 = total loss limit disabled. */
+  totalLossLimitPercent: number;
+  currentLockedBalance: number;
+  availableBalance: number;
+  openPositionCount: number;
+}
+
+export type ClassicSettingsUpdate = Partial<
+  Pick<
+    ClassicSettings,
+    | 'defaultStakeUsd'
+    | 'maxStakeUsd'
+    | 'defaultDurationSeconds'
+    | 'dailyLossLimitPercent'
+    | 'totalLossLimitPercent'
+  >
+>;
+
+/** Classic Options live status (GET /api/classic/status). */
+export interface ClassicStatus {
+  tradingEnabled: boolean;
+  loopRunning: boolean;
+  blockedReason: ClassicBlockedReason | null;
+  blockedMessage: string | null;
+  openPositions: number;
+  lockedBalance: number;
+  /** Sum of the stakes of all open classic positions. */
+  openClassicStakeUsd: number;
+  availableBalance: number;
+  marketDataFresh: boolean;
+  lastUpdated: string;
+}
+
+export type AddressSource = 'DATABASE' | 'ENVIRONMENT' | 'SIMULATED' | 'NOT_SET';
+
+export interface AddressValidation {
+  valid: boolean;
+  addressType: 'TRON' | 'UNKNOWN';
+  reason?: string;
+}
+
+/** User-editable Tron addresses (GET /api/wallet/addresses). */
+export interface WalletAddresses {
+  usdcTradeAddress: string;
+  withdrawalDestinationAddress: string;
+  /** Effective withdrawal destination (falls back to usdcTradeAddress). */
+  effectiveWithdrawalDestinationAddress: string;
+  trxFeeWalletAddress: string;
+  usdcTradeAddressSource: AddressSource;
+  withdrawalDestinationAddressSource: AddressSource;
+  trxFeeWalletAddressSource: AddressSource;
+  updatedAt: string | null;
+  validationStatus: {
+    usdcTradeAddress: AddressValidation;
+    withdrawalDestinationAddress: AddressValidation | null;
+    trxFeeWalletAddress: AddressValidation;
+  };
+}
+
+/** One row of the settings audit log (GET /api/settings/audit). */
+export interface SettingsAuditEntry {
+  id: number;
+  key: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+}
+
+export interface WalletAddressesUpdate {
+  usdcTradeAddress?: string;
+  /** Empty string clears the override (falls back to usdcTradeAddress). */
+  withdrawalDestinationAddress?: string;
+  /** Empty string clears the override (falls back to env/simulated). */
+  trxFeeWalletAddress?: string;
 }
 

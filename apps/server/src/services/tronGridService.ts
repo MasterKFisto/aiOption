@@ -2,6 +2,7 @@ import type { TronMode } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { logger } from '../logger.js';
+import { resolveUsdcTradeAddress } from './appSettings.js';
 import type {
   IncomingUsdcTransfer,
   TransactionStatusResult,
@@ -35,11 +36,15 @@ export class TronGridTronService implements TronService {
     return config.TRON_GRID_API_KEY ? { 'TRON-PRO-API-KEY': config.TRON_GRID_API_KEY } : {};
   }
 
+  /** DB-stored trade address (Phase 6.5.1) or TRON_DEPOSIT_ADDRESS. */
   async getDepositAddress(): Promise<string> {
-    if (!config.TRON_DEPOSIT_ADDRESS) {
-      throw new Error('TRON_DEPOSIT_ADDRESS is not configured for live Tron mode');
+    const resolved = resolveUsdcTradeAddress();
+    if (resolved.source !== 'DATABASE' && resolved.source !== 'ENVIRONMENT') {
+      throw new Error(
+        'TRON_DEPOSIT_ADDRESS is not configured for live Tron mode — set it in the environment or save a USDC trade address in the UI',
+      );
     }
-    return config.TRON_DEPOSIT_ADDRESS;
+    return resolved.address;
   }
 
   async getIncomingUsdcTransfers(): Promise<IncomingUsdcTransfer[]> {

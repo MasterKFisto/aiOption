@@ -12,6 +12,7 @@ import type {
   PositionStatus,
   PositionUpdate,
   RiskEvent,
+  SettingsAuditEntry,
   Transaction,
   TrxFeeDeposit,
   WalletRecord,
@@ -68,6 +69,8 @@ interface PositionRow {
   settlement_status: string | null;
   settlement_reason: string | null;
   source: string;
+  stake_usd: number | null;
+  option_type: string | null;
 }
 
 interface TransactionRow {
@@ -150,7 +153,15 @@ const toPosition = (r: PositionRow): Position => ({
   settlementStatus: r.settlement_status,
   settlementReason: r.settlement_reason,
   source: r.source,
+  // Exact locked stake (Phase 6.5.1); legacy rows fall back to premium × qty.
+  stakeUsd: r.stake_usd ?? Math.round(r.entry_premium * r.quantity * 100) / 100,
+  optionType: r.option_type ?? 'CLASSIC',
 });
+
+/** The exact stake locked by a position (never recomputed with fees). */
+export function positionStake(position: Pick<Position, 'stakeUsd' | 'entryPremium' | 'quantity'>): number {
+  return position.stakeUsd ?? Math.round(position.entryPremium * position.quantity * 100) / 100;
+}
 
 const toTransaction = (r: TransactionRow): Transaction => ({
   id: r.id,
@@ -273,21 +284,43 @@ export function createPosition(input: NewPosition): Position {
   const createdAt = now();
   const result = getDb()
     .prepare<
-      NewPosition & { createdAt: string; durationSeconds: number | null; expiresAt: string | null; source: string },
+      {
+        symbol: string;
+        side: string;
+        strikePrice: number;
+        expiry: string;
+        quantity: number;
+        entryPremium: number;
+        openedAt: string;
+        createdAt: string;
+        durationSeconds: number | null;
+        expiresAt: string | null;
+        source: string;
+        stakeUsd: number;
+        optionType: string;
+      },
       unknown
     >(
       `INSERT INTO positions
          (symbol, side, strike_price, expiry, quantity, entry_premium, status, opened_at, created_at,
-          duration_seconds, expires_at, source)
+          duration_seconds, expires_at, source, stake_usd, option_type, settlement_status)
        VALUES
          (@symbol, @side, @strikePrice, @expiry, @quantity, @entryPremium, 'OPEN', @openedAt, @createdAt,
-          @durationSeconds, @expiresAt, @source)`,
+          @durationSeconds, @expiresAt, @source, @stakeUsd, @optionType, 'OPEN')`,
     )
     .run({
-      ...input,
+      symbol: input.symbol,
+      side: input.side,
+      strikePrice: input.strikePrice,
+      expiry: input.expiry,
+      quantity: input.quantity,
+      entryPremium: input.entryPremium,
+      openedAt: input.openedAt,
       durationSeconds: input.durationSeconds ?? null,
       expiresAt: input.expiresAt ?? null,
       source: input.source ?? 'MANUAL',
+      stakeUsd: input.stakeUsd ?? Math.round(input.entryPremium * input.quantity * 100) / 100,
+      optionType: input.optionType ?? 'CLASSIC',
       createdAt,
     });
 
@@ -362,10 +395,109 @@ export function claimPositionForSettlement(id: number): boolean {
   const result = getDb()
     .prepare<[number], unknown>(
       `UPDATE positions SET settlement_status = 'SETTLING'
-       WHERE id = ? AND status = 'OPEN' AND settlement_status IS NULL`,
+       WHERE id = ? AND status = 'OPEN' AND (settlement_status IS NULL OR settlement_status = 'OPEN')`,
     )
     .run(id);
   return result.changes === 1;
+}
+
+/** Sum of the exact stakes of all OPEN classic positions. */
+export function sumOpenPositionStakes(): number {
+  const row = getDb()
+    .prepare<[], { total: number | null }>(
+      "SELECT SUM(COALESCE(stake_usd, ROUND(entry_premium * quantity, 2))) AS total FROM positions WHERE status = 'OPEN'",
+    )
+    .get();
+  return Math.round((row?.total ?? 0) * 100) / 100;
+}
+
+/** Most recent CLOSED positions (settled / refunded history). */
+export function listRecentClosedPositions(limit = 20): Position[] {
+  return getDb()
+    .prepare<[number], PositionRow>(
+      "SELECT * FROM positions WHERE status = 'CLOSED' ORDER BY COALESCE(settled_at, closed_at) DESC, id DESC LIMIT ?",
+    )
+    .all(limit)
+    .map(toPosition);
+}
+
+/** Net deposited capital: deposits minus withdrawals (total-loss-limit baseline). */
+export function netDepositedCapital(): number {
+  const row = getDb()
+    .prepare<[], { total: number | null }>(
+      "SELECT SUM(amount) AS total FROM transactions WHERE type IN ('DEPOSIT', 'WITHDRAWAL')",
+    )
+    .get();
+  return Math.round((row?.total ?? 0) * 100) / 100;
+}
+
+/* ------------------------------ app settings ------------------------------ */
+
+export interface AppSettingRow {
+  key: string;
+  value: string;
+  updatedAt: string;
+}
+
+export function getAppSetting(key: string): AppSettingRow | null {
+  const row = getDb()
+    .prepare<[string], { key: string; value: string; updated_at: string }>(
+      'SELECT key, value, updated_at FROM app_settings WHERE key = ?',
+    )
+    .get(key);
+  return row ? { key: row.key, value: row.value, updatedAt: row.updated_at } : null;
+}
+
+/**
+ * Upserts a setting and writes an audit row when the value changes. An empty
+ * string deletes the setting (env/derived default applies again).
+ */
+export function setAppSetting(key: string, value: string): void {
+  const db = getDb();
+  db.transaction(() => {
+    const previous = getAppSetting(key);
+    if ((previous?.value ?? '') === value) {
+      return;
+    }
+    const changedAt = now();
+    if (value === '') {
+      db.prepare('DELETE FROM app_settings WHERE key = ?').run(key);
+    } else {
+      db.prepare(
+        `INSERT INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+      ).run(key, value, changedAt);
+    }
+    db.prepare(
+      'INSERT INTO settings_audit (key, old_value, new_value, changed_at) VALUES (?, ?, ?, ?)',
+    ).run(key, previous?.value ?? null, value === '' ? null : value, changedAt);
+  })();
+}
+
+/** Writes an audit row for a change stored outside app_settings (account columns). */
+export function logSettingsAudit(key: string, oldValue: string | null, newValue: string | null): void {
+  if (oldValue === newValue) {
+    return;
+  }
+  getDb()
+    .prepare('INSERT INTO settings_audit (key, old_value, new_value, changed_at) VALUES (?, ?, ?, ?)')
+    .run(key, oldValue, newValue, now());
+}
+
+export function listSettingsAudit(limit = 50): SettingsAuditEntry[] {
+  return getDb()
+    .prepare<
+      [number],
+      { id: number; key: string; old_value: string | null; new_value: string | null; changed_at: string }
+    >('SELECT * FROM settings_audit ORDER BY id DESC LIMIT ?')
+    .all(limit)
+    .map((r) => ({
+      id: r.id,
+      key: r.key,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+      changedAt: r.changed_at,
+    }));
 }
 
 /* ------------------------------- transactions ------------------------------ */

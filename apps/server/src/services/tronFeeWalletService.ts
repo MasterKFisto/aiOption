@@ -9,23 +9,19 @@ import {
   listTrxFeeDeposits,
 } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { SIMULATED_DEPOSIT_ADDRESS } from './tronService.js';
+import { resolveTrxFeeWalletAddress, resolveUsdcTradeAddress } from './appSettings.js';
 
-const SIMULATED_FEE_WALLET_ADDRESS = 'TSimulatedFeeWalletAddressTRX0000000001';
-
-/** The TRX fee wallet address (dedicated config or the main deposit address). */
+/**
+ * The TRX fee wallet address: UI-saved value (Phase 6.5.1) → env →
+ * simulated placeholder → main trade address (live mode).
+ */
 export function getFeeWalletAddress(): string {
-  if (config.TRON_FEE_WALLET_ADDRESS) {
-    return config.TRON_FEE_WALLET_ADDRESS;
-  }
-  if (config.TRON_MODE === 'SIMULATED') {
-    return SIMULATED_FEE_WALLET_ADDRESS;
-  }
-  return config.TRON_DEPOSIT_ADDRESS || SIMULATED_DEPOSIT_ADDRESS;
+  return resolveTrxFeeWalletAddress().address;
 }
 
 export function getFeeDepositInfo(): TrxFeeDepositInfo {
-  const sameAddressAsDeposit = getFeeWalletAddress() === (config.TRON_DEPOSIT_ADDRESS || SIMULATED_DEPOSIT_ADDRESS);
+  const tradeAddress = resolveUsdcTradeAddress().address;
+  const sameAddressAsDeposit = tradeAddress !== '' && getFeeWalletAddress() === tradeAddress;
   return {
     feeWalletAddress: getFeeWalletAddress(),
     sameAddressAsDeposit,

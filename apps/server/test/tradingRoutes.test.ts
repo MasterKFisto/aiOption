@@ -94,7 +94,7 @@ describe('trading routes', () => {
       fixedTradeSizeUsd: 10,
       postTradePromptEnabled: true,
       maxOptionStakeUsd: 100,
-      optionDefaultDurationSeconds: 300,
+      optionDefaultDurationSeconds: 600,
     });
 
     const account = repo.getAccount();
@@ -122,7 +122,7 @@ describe('trading routes', () => {
       fixedTradeSizeUsd: 10,
       postTradePromptEnabled: true,
       maxOptionStakeUsd: 100,
-      optionDefaultDurationSeconds: 300,
+      optionDefaultDurationSeconds: 600,
     });
 
     const account = repo.getAccount();

@@ -53,6 +53,21 @@ export function WithdrawModal({
     enabled: open,
   });
 
+  // Phase 6.5.1: default destination = saved withdrawal address, else the
+  // user-provided USDC trade address (never the simulated placeholder).
+  const { data: addresses } = useQuery({
+    queryKey: ['wallet-addresses'],
+    queryFn: api.walletAddresses,
+    enabled: open,
+  });
+  const defaultDestination =
+    addresses &&
+    (addresses.withdrawalDestinationAddressSource === 'DATABASE' ||
+      addresses.usdcTradeAddressSource === 'DATABASE' ||
+      addresses.usdcTradeAddressSource === 'ENVIRONMENT')
+      ? addresses.effectiveWithdrawalDestinationAddress
+      : '';
+
   useEffect(() => {
     if (open) {
       setResult(null);
@@ -62,6 +77,12 @@ export function WithdrawModal({
       }
     }
   }, [open, prefillAmount, form]);
+
+  useEffect(() => {
+    if (open && defaultDestination && !form.getFieldValue('destinationAddress')) {
+      form.setFieldValue('destinationAddress', defaultDestination);
+    }
+  }, [open, defaultDestination, form]);
 
   const mutation = useMutation({
     mutationFn: api.createWithdrawal,
