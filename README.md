@@ -170,6 +170,8 @@ Vitest unit + integration tests (all inside the dev container, temp SQLite DBs):
 docker compose exec dev pnpm test                      # run once (recursive)
 docker compose exec dev pnpm --filter @aioption/server test
 docker compose exec dev pnpm --filter @aioption/server test:watch   # watch mode
+docker compose exec dev pnpm test:integration          # Phase 7 gate only
+docker compose exec dev pnpm audit                     # no high/critical vulns
 ```
 
 Test files live in `apps/server/test/` and are strictly typechecked via
@@ -391,6 +393,55 @@ risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
   (`FEE_DEPOSIT` kind). UI: TRX fee deposit panel (address, QR, reserve,
   simulate button) on the Wallet Records page and the Tron status modal;
   the withdrawal modal links to it when the reserve is insufficient.
+
+## Phase 7 — testnet mode, UAT reset & production deployment
+
+**Testnet mode** runs the full app against a Tron *test* network (Shasta or
+Nile) with zero real funds:
+
+- `MODE=TESTNET` (alias of `TRADING_MODE`; `PRODUCTION` maps to `LIVE`)
+  requires `TRON_MODE=SHASTA|NILE` — mainnet is rejected at startup.
+- `MODE=LIVE` requires `LIVE_MODE_CONFIRM=I_UNDERSTAND_REAL_FUNDS`; real
+  withdrawal broadcasts additionally need
+  `LIVE_WITHDRAWALS_CONFIRM=I_UNDERSTAND_LIVE_WITHDRAWALS` plus the flag and
+  a private key. Live withdrawals are **never** enabled without a key.
+- `TRON_RPC_URL`/`TRON_EXPLORER_URL` must be https; a mainnet RPC is rejected
+  unless `TRON_MODE=MAINNET`. `TRON_NETWORK_NAME` customises the label.
+- The server probes the chain every 30 s (block height, TRX/energy/bandwidth
+  of the fee wallet); status drops to DISCONNECTED/TRADE_BLOCKED when the
+  probe fails or goes stale. The UI shows a persistent testnet banner and the
+  Tron modal shows the network, latest block and explorer link.
+- In TESTNET the internal ledger is test funds: simulated deposits and paper
+  wallet operations stay enabled (they are blocked in LIVE only).
+
+**UAT reset** wipes all application data while preserving the schema and the
+saved addresses, then re-seeds a clean account (trading disabled):
+
+```bash
+docker compose run --rm dev sh -c 'cd /app && UAT_RESET_CONFIRM=YES \
+  UAT_RESET_STARTING_BALANCE_USDC=1000 pnpm --filter @aioption/server reset:uat'
+docker compose run --rm dev sh -c 'cd /app && pnpm --filter @aioption/server verify:uat'
+```
+
+The CLI backs the database up to `backups/` first, refuses to run without
+`UAT_RESET_CONFIRM=YES`, and refuses LIVE mode unless
+`UAT_RESET_ALLOW_LIVE=true`. An equivalent HTTP API
+(`POST /api/admin/uat-reset`, `GET /api/admin/uat-verify`) exists but returns
+404 unless `ENABLE_ADMIN_API=true`.
+
+**Production** (`Dockerfile.prod` + `docker-compose.prod.yml`) builds one
+non-root container serving the API **and** the built web UI on port 8080,
+bound to loopback, with healthcheck, resource limits and `unless-stopped`
+restart. Alibaba Cloud ECS guide, setup/deploy/healthcheck scripts and OSS
+backup instructions live in `deploy/ecs/`; the UAT gate checklist is
+`docs/PRE_RELEASE_TEST_CHECKLIST.md` and the risk assessment is
+`docs/CYBERSECURITY_RISK.md`.
+
+```bash
+cp .env.testnet.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+ssh -i key.pem -L 8080:localhost:8080 user@ECS_IP   # then open http://localhost:8080
+```
 
 ## TypeScript
 

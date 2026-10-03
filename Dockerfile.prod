@@ -1,0 +1,58 @@
+# ============================================
+# aioption — PRODUCTION image (Phase 7)
+#
+# Single container: Fastify API + built web UI on one port (default 8080).
+# Non-root runtime, prod dependencies only, SQLite on a mounted volume.
+#
+# Build:  docker compose -f docker-compose.prod.yml build
+# Run:    docker compose -f docker-compose.prod.yml up -d
+# ============================================
+
+# ------------------------------- build stage -------------------------------
+FROM node:22-slim AS build
+ARG PNPM_VERSION=12.8.1
+RUN npm install --global pnpm@${PNPM_VERSION}
+WORKDIR /app
+
+# Install ALL dependencies (dev deps needed to build) with a frozen lockfile.
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+RUN pnpm install --frozen-lockfile
+
+# Build shared → server (tsc) → web (vite).
+COPY packages/shared packages/shared
+COPY apps/server apps/server
+COPY apps/web apps/web
+RUN pnpm --filter @aioption/shared build \
+    && pnpm --filter @aioption/server build \
+    && pnpm --filter @aioption/web build
+
+# Prod-only deployment of the server package (workspace deps injected,
+# devDependencies dropped, sources/tests removed).
+RUN pnpm deploy --filter @aioption/server --prod /out/server \
+    && rm -rf /out/server/src /out/server/test /out/server/tsconfig*.json
+
+# ------------------------------ runtime stage ------------------------------
+FROM node:22-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+
+# Non-root user; data + backup dirs owned by it (mounted as volumes).
+RUN groupadd --gid 1001 app && useradd --uid 1001 --gid app --shell /usr/sbin/nologin app \
+    && mkdir -p /app/data /app/backups && chown -R app:app /app/data /app/backups
+
+# Preserve the repo layout: config resolves DB_PATH / WEB_DIST_DIR relative to
+# the repository root (apps/server/dist/../../.. == /app).
+COPY --from=build --chown=app:app /out/server /app/apps/server
+COPY --from=build --chown=app:app /app/apps/web/dist /app/apps/web/dist
+
+USER app
+EXPOSE 8080
+
+# API + web UI on one port. /api/health doubles as the container health signal.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD ["node", "-e", "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+
+CMD ["node", "apps/server/dist/index.js"]

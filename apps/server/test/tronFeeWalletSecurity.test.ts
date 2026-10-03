@@ -22,7 +22,10 @@ let getFeeReserveStatus: typeof import('../src/services/tronFeeWalletService.js'
 beforeAll(async () => {
   vi.resetModules();
   process.env['DB_PATH'] = dbPath;
-  process.env['TRADING_MODE'] = 'TESTNET';
+  // Phase 7: TESTNET requires a test network (SHASTA/NILE), so this non-paper,
+  // non-simulated scenario runs as LIVE+MAINNET with the mandatory confirms.
+  process.env['TRADING_MODE'] = 'LIVE';
+  process.env['LIVE_MODE_CONFIRM'] = 'I_UNDERSTAND_REAL_FUNDS';
   process.env['TRON_MODE'] = 'MAINNET';
   process.env['TRON_FEE_WALLET_ADDRESS'] = CONFIGURED_FEE_WALLET;
   process.env['TRON_ACCEPT_TRX_DEPOSITS'] = 'false';
@@ -50,7 +53,7 @@ describe('TRX fee wallet security (non-paper, non-simulated)', () => {
       payload: { amountTrx: 100 },
     });
     expect(res.statusCode).toBe(403);
-    expect(res.json().error).toMatch(/paper\/simulated mode/);
+    expect(res.json().error).toMatch(/paper\/testnet\/simulated mode/);
   });
 
   it('uses the configured fee wallet address and honors acceptTrxDeposits=false', () => {

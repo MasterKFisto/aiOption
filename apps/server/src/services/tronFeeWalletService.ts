@@ -10,6 +10,7 @@ import {
 } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
 import { resolveTrxFeeWalletAddress, resolveUsdcTradeAddress } from './appSettings.js';
+import { lastProbedResources } from './tronStatusService.js';
 
 /**
  * The TRX fee wallet address: UI-saved value (Phase 6.5.1) → env →
@@ -35,9 +36,14 @@ export function getFeeDepositInfo(): TrxFeeDepositInfo {
   };
 }
 
-/** Fee reserve status: simulated balance from credited TRX deposits. */
+/**
+ * Fee reserve status. SIMULATED: balance from credited (simulated) TRX
+ * deposits. Real networks (Phase 7): the on-chain balance from the last
+ * successful probe, falling back to the internal ledger.
+ */
 export function getFeeReserveStatus(): TrxFeeStatus {
-  const trxBalance = feeWalletTrxBalance();
+  const onChain = lastProbedResources();
+  const trxBalance = onChain ? onChain.trxBalance : feeWalletTrxBalance();
   const sufficient = trxBalance >= config.TRON_MIN_TRX_FEE_RESERVE;
   const estimatedWithdrawalsSupported = Math.floor(trxBalance / config.TRON_WITHDRAWAL_FEE_ESTIMATE_TRX);
   const warnings: string[] = [];
@@ -52,8 +58,8 @@ export function getFeeReserveStatus(): TrxFeeStatus {
   return {
     feeWalletAddress: getFeeWalletAddress(),
     trxBalance,
-    energyAvailable: config.TRON_MODE === 'SIMULATED' ? 100_000 : 0,
-    bandwidthAvailable: config.TRON_MODE === 'SIMULATED' ? 5_000 : 0,
+    energyAvailable: config.TRON_MODE === 'SIMULATED' ? 100_000 : (onChain?.energyAvailable ?? 0),
+    bandwidthAvailable: config.TRON_MODE === 'SIMULATED' ? 5_000 : (onChain?.bandwidthAvailable ?? 0),
     minTrxFeeReserve: config.TRON_MIN_TRX_FEE_RESERVE,
     sufficientFeeReserve: sufficient,
     estimatedWithdrawalsSupported: Math.max(0, estimatedWithdrawalsSupported),

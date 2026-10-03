@@ -67,6 +67,31 @@ const envSchema = z.object({
    * Only read when TRON_MODE is live AND ENABLE_LIVE_TRON_WITHDRAWALS=true.
    */
   TRON_HOT_WALLET_PRIVATE_KEY: z.string().trim().default(''),
+  /* ---------------------- Phase 7: network + safety gates -------------------- */
+  /**
+   * Accepted alias of TRADING_MODE (the Phase 7 spec uses MODE). TRADING_MODE
+   * wins when both are set; PRODUCTION is treated as LIVE.
+   */
+  // Free-form on purpose: tooling (Vite/Vitest) may set MODE=test/development.
+  // Only PAPER/TESTNET/LIVE/PRODUCTION are honoured; anything else is ignored.
+  MODE: z.string().trim().optional(),
+  /** Human-readable network name (UI / status). */
+  TRON_NETWORK_NAME: z.string().trim().max(64).default(''),
+  /** TronGrid-compatible RPC base URL (testnets only; must be https). */
+  TRON_RPC_URL: z.string().trim().default(''),
+  /** Block explorer base URL for transaction links. */
+  TRON_EXPLORER_URL: z.string().trim().default(''),
+  /** Required to run in LIVE mode at all ("I_UNDERSTAND_REAL_FUNDS"). */
+  LIVE_MODE_CONFIRM: z.string().trim().default(''),
+  /** Required for real broadcasts in LIVE mode ("I_UNDERSTAND_LIVE_WITHDRAWALS"). */
+  LIVE_WITHDRAWALS_CONFIRM: z.string().trim().default(''),
+  /** Admin/maintenance endpoints (UAT reset API). Disabled by default. */
+  ENABLE_ADMIN_API: z.enum(['true', 'false']).default('false'),
+  /**
+   * Production: absolute path of the built web app (apps/web/dist) served by
+   * the API on the same port. Empty (dev) = not served (Vite serves the UI).
+   */
+  WEB_DIST_DIR: z.string().trim().default(''),
   /* ------------------------------ binary options ----------------------------- */
   /** Enable the binary options module (internal-ledger settlement). */
   BINARY_ENABLED: z.enum(['true', 'false']).default('true'),
@@ -206,7 +231,100 @@ const envSchema = z.object({
       message: `must be one of the allowed durations [${optionDurations.join(', ')}]`,
     });
   }
+
+  /* ----------------------- Phase 7: network safety gates ---------------------- */
+  const tradingModeExplicit = process.env['TRADING_MODE'] !== undefined;
+  const alias = parseModeAlias(env.MODE);
+  if (tradingModeExplicit && alias !== null && alias !== env.TRADING_MODE) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['MODE'],
+      message: `MODE=${env.MODE} conflicts with TRADING_MODE=${env.TRADING_MODE} — set only one`,
+    });
+  }
+  const mode = effectiveMode(env.TRADING_MODE, env.MODE, tradingModeExplicit);
+  if (mode === 'TESTNET' && env.TRON_MODE !== 'SHASTA' && env.TRON_MODE !== 'NILE') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TRON_MODE'],
+      message: `MODE=TESTNET requires TRON_MODE=SHASTA or NILE (got ${env.TRON_MODE}) — mainnet is never allowed in testnet mode`,
+    });
+  }
+  if (mode === 'LIVE' && env.LIVE_MODE_CONFIRM !== LIVE_MODE_CONFIRMATION) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LIVE_MODE_CONFIRM'],
+      message: `MODE=LIVE/PRODUCTION requires LIVE_MODE_CONFIRM=${LIVE_MODE_CONFIRMATION}`,
+    });
+  }
+  if (
+    mode === 'LIVE' &&
+    env.ENABLE_LIVE_TRON_WITHDRAWALS === 'true' &&
+    env.LIVE_WITHDRAWALS_CONFIRM !== LIVE_WITHDRAWALS_CONFIRMATION
+  ) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['LIVE_WITHDRAWALS_CONFIRM'],
+      message: `ENABLE_LIVE_TRON_WITHDRAWALS=true in LIVE mode requires LIVE_WITHDRAWALS_CONFIRM=${LIVE_WITHDRAWALS_CONFIRMATION}`,
+    });
+  }
+  if (env.TRON_RPC_URL !== '' && !/^https:\/\/[a-z0-9.-]+(:\d+)?(\/.*)?$/i.test(env.TRON_RPC_URL)) {
+    ctx.addIssue({ code: 'custom', path: ['TRON_RPC_URL'], message: 'must be an https:// URL' });
+  }
+  if (env.TRON_EXPLORER_URL !== '' && !/^https:\/\/[a-z0-9.-]+(:\d+)?(\/.*)?$/i.test(env.TRON_EXPLORER_URL)) {
+    ctx.addIssue({ code: 'custom', path: ['TRON_EXPLORER_URL'], message: 'must be an https:// URL' });
+  }
+  if (env.TRON_MODE !== 'MAINNET' && isMainnetTronGridHost(env.TRON_RPC_URL)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['TRON_RPC_URL'],
+      message: 'TRON_RPC_URL points at Tron MAINNET while TRON_MODE is not MAINNET',
+    });
+  }
 });
+
+export const LIVE_MODE_CONFIRMATION = 'I_UNDERSTAND_REAL_FUNDS';
+export const LIVE_WITHDRAWALS_CONFIRMATION = 'I_UNDERSTAND_LIVE_WITHDRAWALS';
+
+/** True when the URL's host is the Tron MAINNET TronGrid endpoint. */
+function isMainnetTronGridHost(raw: string): boolean {
+  if (raw === '') {
+    return false;
+  }
+  try {
+    return new URL(raw).hostname.toLowerCase() === 'api.trongrid.io';
+  } catch {
+    return false;
+  }
+}
+
+/** Maps the MODE alias; unknown values (e.g. Vitest's "test") → null. */
+function parseModeAlias(value: string | undefined): TradingMode | null {
+  switch ((value ?? '').toUpperCase()) {
+    case 'PAPER':
+      return 'PAPER';
+    case 'TESTNET':
+      return 'TESTNET';
+    case 'LIVE':
+    case 'PRODUCTION':
+      return 'LIVE';
+    default:
+      return null;
+  }
+}
+
+/** TRADING_MODE wins if explicitly set; otherwise MODE (PRODUCTION → LIVE). */
+function effectiveMode(
+  tradingMode: TradingMode,
+  modeAlias: string | undefined,
+  tradingModeExplicit: boolean,
+): TradingMode {
+  const alias = parseModeAlias(modeAlias);
+  if (tradingModeExplicit || alias === null) {
+    return tradingMode;
+  }
+  return alias;
+}
 
 const result = envSchema.safeParse(process.env);
 if (!result.success) {
@@ -240,8 +358,13 @@ function freshWindow(name: string, configured: number): number {
 }
 
 /** Validated, typed runtime configuration. */
+const effectiveTradingMode = effectiveMode(
+  env.TRADING_MODE,
+  env.MODE,
+  process.env['TRADING_MODE'] !== undefined,
+);
 export const config = {
-  MODE: env.TRADING_MODE,
+  MODE: effectiveTradingMode,
   DB_PATH: fromRepoRoot(env.DB_PATH),
   BASE_CURRENCY: env.BASE_CURRENCY,
   FIXED_TRADE_SIZE_USD: env.FIXED_TRADE_SIZE_USD,
@@ -261,13 +384,33 @@ export const config = {
   FALLBACK_MARKET_SYMBOL: env.FALLBACK_MARKET_SYMBOL,
   MARKET_POLL_INTERVAL_MS: env.MARKET_POLL_INTERVAL_MS,
   TRON_MODE: env.TRON_MODE,
+  /**
+   * True when fake/simulated funds may be credited to the INTERNAL ledger:
+   * PAPER mode, TESTNET mode (startup-guaranteed to point at a test network),
+   * or the SIMULATED Tron service. Never true in LIVE.
+   */
+  SIMULATION_ALLOWED:
+    effectiveTradingMode === 'PAPER' ||
+    effectiveTradingMode === 'TESTNET' ||
+    env.TRON_MODE === 'SIMULATED',
   TRON_DEPOSIT_ADDRESS: env.TRON_DEPOSIT_ADDRESS,
   TRON_HOT_WALLET_ADDRESS: env.TRON_HOT_WALLET_ADDRESS,
   TRON_USDC_CONTRACT_ADDRESS: env.TRON_USDC_CONTRACT_ADDRESS,
   TRON_GRID_API_KEY: env.TRON_GRID_API_KEY,
   TRON_REQUIRED_CONFIRMATIONS: env.TRON_REQUIRED_CONFIRMATIONS,
-  ENABLE_LIVE_TRON_WITHDRAWALS: env.ENABLE_LIVE_TRON_WITHDRAWALS === 'true',
+  /**
+   * Broadcasting real withdrawals needs BOTH the flag AND a server-side key.
+   * An empty TRON_HOT_WALLET_PRIVATE_KEY always disables broadcasting.
+   */
+  ENABLE_LIVE_TRON_WITHDRAWALS:
+    env.ENABLE_LIVE_TRON_WITHDRAWALS === 'true' && env.TRON_HOT_WALLET_PRIVATE_KEY !== '',
   TRON_HOT_WALLET_PRIVATE_KEY: env.TRON_HOT_WALLET_PRIVATE_KEY,
+  TRON_NETWORK_NAME: env.TRON_NETWORK_NAME,
+  TRON_RPC_URL: env.TRON_RPC_URL.replace(/\/+$/, ''),
+  TRON_EXPLORER_URL: env.TRON_EXPLORER_URL.replace(/\/+$/, ''),
+  ENABLE_ADMIN_API: env.ENABLE_ADMIN_API === 'true',
+  WEB_DIST_DIR: env.WEB_DIST_DIR ? fromRepoRoot(env.WEB_DIST_DIR) : '',
+  NODE_ENV: process.env['NODE_ENV'] ?? 'development',
   BINARY_ENABLED: env.BINARY_ENABLED === 'true',
   BINARY_LIVE_TRADING_ENABLED: env.BINARY_LIVE_TRADING_ENABLED === 'true',
   BINARY_MIN_STAKE_USD: env.BINARY_MIN_STAKE_USD,

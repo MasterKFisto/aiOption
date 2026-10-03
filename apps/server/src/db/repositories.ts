@@ -21,6 +21,7 @@ import type {
   WithdrawalStatus,
 } from '@aioption/shared';
 
+import { explorerTxUrl } from '../services/tronNetwork.js';
 import { getDb } from './connection.js';
 
 const now = (): string => new Date().toISOString();
@@ -1003,11 +1004,8 @@ const toWalletRecord = (r: WalletRecordRow): WalletRecord => ({
   feeEstimateUsd: r.fee_estimate_usd,
   feePaidBy: r.fee_paid_by,
   notes: r.notes,
-  explorerUrl: r.txid
-    ? r.txid.startsWith('sim-')
-      ? null
-      : `https://tronscan.org/#/transaction/${r.txid}`
-    : null,
+  // Phase 7: link to the ACTIVE network's explorer (Shasta/Nile on testnet).
+  explorerUrl: explorerTxUrl(r.txid),
 });
 
 const WALLET_RECORD_KINDS = new Set(['ALL', 'DEPOSIT', 'WITHDRAWAL', 'TRADE', 'FEE', 'REFUND', 'FEE_DEPOSIT']);

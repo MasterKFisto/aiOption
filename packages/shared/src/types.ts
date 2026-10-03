@@ -510,6 +510,14 @@ export type TronReadiness = 'READY_TO_TRADE' | 'TRADE_BLOCKED' | 'WITHDRAWAL_BLO
 export interface TronStatus {
   mode: TronMode;
   networkName: string;
+  /** Phase 7: application trading mode (PAPER | TESTNET | LIVE). */
+  tradingMode?: TradingMode;
+  /** Phase 7: true on Shasta / Nile. */
+  isTestnet?: boolean;
+  /** Phase 7: block explorer base URL for the active network. */
+  explorerUrl?: string | null;
+  /** Phase 7: latest block height from the last successful probe. */
+  latestBlock?: number | null;
   connectionStatus: TronConnectionStatus;
   readyToTrade: boolean;
   readiness: TronReadiness;

@@ -20,6 +20,8 @@ beforeAll(async () => {
   process.env['DB_PATH'] = path.join(tmpDir, 'trading.db');
   process.env['TRADING_MODE'] = 'LIVE';
   process.env['TRON_MODE'] = 'MAINNET';
+  // Phase 7: LIVE mode requires an explicit real-funds acknowledgement.
+  process.env['LIVE_MODE_CONFIRM'] = 'I_UNDERSTAND_REAL_FUNDS';
   connection = await import('../src/db/connection.js');
   repo = await import('../src/db/repositories.js');
   const { walletRoutes } = await import('../src/routes/walletRoutes.js');
@@ -33,6 +35,7 @@ afterAll(async () => {
   connection.closeDb();
   delete process.env['TRADING_MODE'];
   delete process.env['TRON_MODE'];
+  delete process.env['LIVE_MODE_CONFIRM'];
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

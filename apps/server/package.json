@@ -9,11 +9,16 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "reset:uat": "tsx src/scripts/resetUat.ts",
+    "verify:uat": "tsx src/scripts/verifyUat.ts",
+    "reset:uat:prod": "node dist/scripts/resetUat.js",
+    "verify:uat:prod": "node dist/scripts/verifyUat.js"
   },
   "dependencies": {
     "@aioption/shared": "workspace:*",
     "@fastify/cors": "^11.3.0",
+    "@fastify/static": "^10.1.5",
     "better-sqlite3": "^13.0.3",
     "fastify": "^5.12.5",
     "pino": "^10.3.1",

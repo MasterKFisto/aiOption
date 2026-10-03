@@ -88,6 +88,17 @@ const emptyStats = (): AiBinaryStats => ({
  * the existing BinaryService. Settlement is handled by the Phase 6.2 engine;
  * this service only listens to its events to track session performance.
  */
+/**
+ * AI auto-execution gate. All binary contracts settle on the INTERNAL ledger
+ * (test balance) in PAPER and TESTNET modes, so auto-execution is allowed
+ * there. Only MODE=LIVE (real funds) requires the explicit opt-in flag.
+ */
+export const LIVE_AUTO_BLOCKED_MESSAGE =
+  'AI auto-execution in LIVE mode requires AI_BINARY_LIVE_AUTO_TRADING_ENABLED=true';
+function liveAutoBlocked(): boolean {
+  return config.MODE === 'LIVE' && !config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED;
+}
+
 export class AiBinaryService {
   private running = false;
   private settings: AiRuntimeSettings;
@@ -175,12 +186,9 @@ export class AiBinaryService {
       }
       if (
         patch.mode === 'AUTO_EXECUTE' &&
-        config.MODE !== 'PAPER' &&
-        !config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED
+        liveAutoBlocked()
       ) {
-        throw new Error(
-          'AI auto-execution outside PAPER mode requires AI_BINARY_LIVE_AUTO_TRADING_ENABLED=true',
-        );
+        throw new Error(LIVE_AUTO_BLOCKED_MESSAGE);
       }
       this.settings.mode = patch.mode;
       // Switching to DISABLED stops the engine immediately for a clean state.
@@ -292,12 +300,9 @@ export class AiBinaryService {
     }
     if (
       this.settings.mode === 'AUTO_EXECUTE' &&
-      config.MODE !== 'PAPER' &&
-      !config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED
+      liveAutoBlocked()
     ) {
-      throw new Error(
-        'AI auto-execution outside PAPER mode requires AI_BINARY_LIVE_AUTO_TRADING_ENABLED=true',
-      );
+      throw new Error(LIVE_AUTO_BLOCKED_MESSAGE);
     }
     if (this.running) {
       return this.getStatus();
@@ -436,9 +441,9 @@ export class AiBinaryService {
       return;
     }
 
-    // Safety gate: never auto-execute outside PAPER mode unless explicitly
+    // Safety gate: never auto-execute in LIVE (real-funds) mode unless explicitly
     // enabled. (start()/updateSettings() enforce this too — belt and braces.)
-    if (config.MODE !== 'PAPER' && !config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED) {
+    if (liveAutoBlocked()) {
       this.warn('live AI auto-execution is disabled by configuration');
       return;
     }
@@ -669,8 +674,7 @@ export class AiBinaryService {
     }
     if (
       this.settings.mode === 'AUTO_EXECUTE' &&
-      config.MODE !== 'PAPER' &&
-      !config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED
+      liveAutoBlocked()
     ) {
       warnings.unshift('live AI auto-execution is disabled by configuration');
     }

@@ -11,11 +11,28 @@ import type {
 } from './tronService.js';
 
 /** TronGrid REST base URLs per network mode. */
-const TRONGRID_BASE: Record<Exclude<TronMode, 'SIMULATED'>, string> = {
+export const TRONGRID_BASE: Record<Exclude<TronMode, 'SIMULATED'>, string> = {
   SHASTA: 'https://api.shasta.trongrid.io',
   NILE: 'https://nile.trongrid.io',
   MAINNET: 'https://api.trongrid.io',
 };
+
+/** Effective RPC base: TRON_RPC_URL (testnets) overrides the built-in default. */
+export function tronRpcBase(mode: Exclude<TronMode, 'SIMULATED'>): string {
+  return mode !== 'MAINNET' && config.TRON_RPC_URL ? config.TRON_RPC_URL : TRONGRID_BASE[mode];
+}
+
+export interface TronAccountResources {
+  /** TRX balance in TRX (not SUN). */
+  trxBalance: number;
+  energyAvailable: number;
+  bandwidthAvailable: number;
+  /** Latest block number (proves the node is reachable). */
+  latestBlock: number;
+}
+
+const REQUEST_TIMEOUT_MS = 8_000;
+const TRON_ADDRESS_RE = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
 
 /**
  * Real Tron service backed by TronGrid. Read-only operations (deposit address,
@@ -29,11 +46,60 @@ export class TronGridTronService implements TronService {
   private readonly baseUrl: string;
 
   constructor(mode: Exclude<TronMode, 'SIMULATED'>) {
-    this.baseUrl = TRONGRID_BASE[mode];
+    this.baseUrl = tronRpcBase(mode);
   }
 
   private headers(): Record<string, string> {
     return config.TRON_GRID_API_KEY ? { 'TRON-PRO-API-KEY': config.TRON_GRID_API_KEY } : {};
+  }
+
+  /**
+   * Phase 7: real connectivity + fee-resource probe. Reads the latest block
+   * (node reachable) and, if an address is given, its TRX balance, energy and
+   * bandwidth. Read-only — never needs a private key.
+   */
+  async probe(address: string | null): Promise<TronAccountResources> {
+    const post = async (path: string, body: unknown) => {
+      const res = await fetch(`${this.baseUrl}${path}`, {
+        method: 'POST',
+        headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!res.ok) {
+        throw new Error(`trongrid ${path}: HTTP ${res.status}`);
+      }
+      return (await res.json()) as Record<string, unknown>;
+    };
+    const block = (await post('/wallet/getnowblock', {})) as {
+      block_header?: { raw_data?: { number?: number } };
+    };
+    const latestBlock = Number(block.block_header?.raw_data?.number ?? 0);
+    if (!(latestBlock > 0)) {
+      throw new Error('trongrid: no block height returned');
+    }
+    if (!address || !TRON_ADDRESS_RE.test(address)) {
+      return { trxBalance: 0, energyAvailable: 0, bandwidthAvailable: 0, latestBlock };
+    }
+    const account = (await post('/wallet/getaccount', { address, visible: true })) as { balance?: number };
+    const resources = (await post('/wallet/getaccountresource', { address, visible: true })) as {
+      EnergyLimit?: number;
+      EnergyUsed?: number;
+      freeNetLimit?: number;
+      freeNetUsed?: number;
+      NetLimit?: number;
+      NetUsed?: number;
+    };
+    const n = (v: number | undefined) => (Number.isFinite(v) ? Number(v) : 0);
+    return {
+      trxBalance: n(account.balance) / 1e6,
+      energyAvailable: Math.max(0, n(resources.EnergyLimit) - n(resources.EnergyUsed)),
+      bandwidthAvailable: Math.max(
+        0,
+        n(resources.freeNetLimit) - n(resources.freeNetUsed) + n(resources.NetLimit) - n(resources.NetUsed),
+      ),
+      latestBlock,
+    };
   }
 
   /** DB-stored trade address (Phase 6.5.1) or TRON_DEPOSIT_ADDRESS. */

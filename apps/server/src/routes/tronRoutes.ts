@@ -52,10 +52,11 @@ export async function tronRoutes(app: FastifyInstance): Promise<void> {
   app.get('/tron/fee-deposits', async () => getTrxFeeDeposits(50));
 
   app.post('/tron/simulate-trx-deposit', async (request, reply) => {
-    if (config.MODE !== 'PAPER' && config.TRON_MODE !== 'SIMULATED') {
+    // Test ledgers only (PAPER/TESTNET/SIMULATED) — never in LIVE.
+    if (!config.SIMULATION_ALLOWED) {
       return reply
         .code(403)
-        .send({ error: 'simulated TRX deposits are only available in paper/simulated mode' });
+        .send({ error: 'simulated TRX deposits are only available in paper/testnet/simulated mode' });
     }
     const parsed = simulateTrxSchema.safeParse(request.body);
     if (!parsed.success) {

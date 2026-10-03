@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Descriptions, Modal, Spin, Tag } from 'antd';
+import { Alert, Descriptions, Modal, Spin, Tag, Typography } from 'antd';
 
 import type { TronStatus } from '@aioption/shared';
 
@@ -34,11 +34,36 @@ export function TronStatusModal({ open, onClose }: { open: boolean; onClose: () 
         <Alert type="error" showIcon message={(error as Error)?.message ?? 'unavailable'} />
       ) : (
         <>
+          {status.tradingMode === 'TESTNET' && (
+            <Alert
+              type="warning"
+              showIcon
+              data-testid="tron-modal-testnet"
+              message="Testnet mode: using test network only. No real funds."
+              style={{ marginBottom: 12 }}
+            />
+          )}
           <Descriptions size="small" column={1} bordered>
             <Descriptions.Item label="Network">
               {status.networkName}{' '}
-              <Tag color={status.mode === 'SIMULATED' ? 'default' : 'blue'}>{status.mode}</Tag>
+              <Tag color={status.mode === 'SIMULATED' ? 'default' : 'blue'}>{status.mode}</Tag>{' '}
+              {status.tradingMode && (
+                <Tag color={status.tradingMode === 'LIVE' ? 'red' : status.tradingMode === 'TESTNET' ? 'orange' : 'green'}>
+                  {status.tradingMode}
+                </Tag>
+              )}
+              {status.isTestnet ? <Tag color="orange">test network</Tag> : null}
             </Descriptions.Item>
+            {typeof status.latestBlock === 'number' && status.latestBlock > 0 && (
+              <Descriptions.Item label="Latest block">{status.latestBlock}</Descriptions.Item>
+            )}
+            {status.explorerUrl && (
+              <Descriptions.Item label="Explorer">
+                <Typography.Link href={status.explorerUrl} target="_blank" rel="noreferrer">
+                  {status.explorerUrl}
+                </Typography.Link>
+              </Descriptions.Item>
+            )}
             <Descriptions.Item label="Connection">
               <Tag color={CONNECTION_COLORS[status.connectionStatus]}>
                 {status.connectionStatus}

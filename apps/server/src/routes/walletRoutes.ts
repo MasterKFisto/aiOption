@@ -22,14 +22,14 @@ export async function walletRoutes(app: FastifyInstance): Promise<void> {
   const wallet = new WalletService();
 
   // Security: paper (fake) deposits/withdrawals must never touch a real
-  // account. Same rule as /deposits/simulate — allowed only in paper mode or
-  // with the simulated Tron network. Otherwise anyone reaching the API could
-  // mint trading balance out of thin air in TESTNET/LIVE.
+  // account. Allowed only when the ledger is test-only: PAPER or TESTNET
+  // mode (test networks), or the simulated Tron network. In LIVE mode anyone
+  // reaching the API could otherwise mint trading balance out of thin air.
   app.addHook('preHandler', async (request, reply) => {
-    if (request.method !== 'GET' && config.MODE !== 'PAPER' && config.TRON_MODE !== 'SIMULATED') {
+    if (request.method !== 'GET' && !config.SIMULATION_ALLOWED) {
       return reply
         .code(403)
-        .send({ error: 'paper wallet operations are only available in paper/simulated mode' });
+        .send({ error: 'paper wallet operations are only available in paper/testnet/simulated mode' });
     }
     return undefined;
   });

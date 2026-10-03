@@ -1,0 +1,44 @@
+# ============================================
+# aioption — PRODUCTION deployment (Phase 7)
+# Alibaba Cloud ECS (or any Docker host). Loopback-only: reach the UI through
+# an SSH tunnel (see deploy/ecs/README.md).
+#
+#   cp .env.testnet.example .env   # then edit values
+#   docker compose -f docker-compose.prod.yml up -d --build
+# ============================================
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: aioption:latest
+    container_name: aioption
+    restart: unless-stopped
+    # All configuration comes from the repository's .env file.
+    env_file: .env
+    ports:
+      # Loopback only — never expose the API/UI publicly.
+      - '127.0.0.1:8080:8080'
+    volumes:
+      # SQLite database (WAL) and database backups survive container rebuilds.
+      - aioption-data:/app/data
+      - aioption-backups:/app/backups
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    # Resource limits: personal app, small instance.
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 256
+    # Operational overrides (stop the app before running the UAT reset CLI):
+    #   docker compose -f docker-compose.prod.yml stop app
+    #   docker compose -f docker-compose.prod.yml run --rm --no-deps \
+    #     -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDC=1000 \
+    #     app node apps/server/dist/scripts/resetUat.js
+
+volumes:
+  aioption-data:
+  aioption-backups:

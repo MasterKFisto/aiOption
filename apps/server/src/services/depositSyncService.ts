@@ -1,4 +1,5 @@
 import { roundMoney } from '@aioption/shared';
+import { randomUUID } from 'node:crypto';
 
 import { createDeposit } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
@@ -46,6 +47,33 @@ export async function syncDepositsOnce(): Promise<number> {
     logger.error({ err }, 'deposit sync failed');
   }
   return credited;
+}
+
+/**
+ * Phase 7: credits a SIMULATED USDC deposit straight onto the internal ledger
+ * without going through a Tron service. Used by /deposits/simulate in TESTNET
+ * mode, where the active TronGrid service watches a real test network and has
+ * no simulation method. The route gate (config.SIMULATION_ALLOWED) guarantees
+ * this can never run in LIVE mode.
+ */
+export function recordSimulatedDeposit(amountUsdc: number): boolean {
+  const amount = roundMoney(amountUsdc);
+  const txid = `sim-${randomUUID()}`;
+  const deposit = createDeposit({
+    amount,
+    fromAddress: 'TSimulatedSenderAddress000000000000',
+    txid,
+    status: 'CONFIRMED',
+    confirmations: 999,
+    creditedAt: new Date().toISOString(),
+    notes: 'simulated Tron USDC TRC20 deposit (test ledger)',
+  });
+  if (!deposit) {
+    return false;
+  }
+  new WalletService().deposit(amount, `Simulated Tron USDC deposit ${txid}`);
+  publishEvent('deposit', deposit);
+  return true;
 }
 
 export function startDepositSync(intervalMs = 10_000): void {

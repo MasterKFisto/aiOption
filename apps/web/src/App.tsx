@@ -7,7 +7,7 @@ import {
   WalletOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { Layout, Menu, Tag, Tooltip } from 'antd';
+import { Alert, Layout, Menu, Tag, Tooltip } from 'antd';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -40,6 +40,9 @@ const VIEWS: Array<{ key: View; label: string; icon: ReactNode }> = [
 ];
 
 const SEEN_KEY = 'aioption-post-trade-seen';
+
+/** Phase 7: shown on every page while MODE=TESTNET. */
+export const TESTNET_BANNER_TEXT = 'Testnet mode: using test network only. No real funds.';
 
 function loadSeen(): string[] {
   try {
@@ -212,6 +215,16 @@ export default function App() {
         </Tooltip>
       </Sider>
       <Layout>
+        {tronStatus?.tradingMode === 'TESTNET' && (
+          <Alert
+            banner
+            type="warning"
+            showIcon
+            data-testid="testnet-banner"
+            message={TESTNET_BANNER_TEXT}
+            description={`Tron network: ${tronStatus.networkName}${tronStatus.isTestnet ? '' : ' (NOT a testnet — check configuration!)'}`}
+          />
+        )}
         <Content style={{ padding: 24 }}>
           {view === 'classic' && <DashboardPage />}
           {view === 'binary' && <BinaryOptionsPage />}

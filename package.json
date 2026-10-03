@@ -14,7 +14,10 @@
     "dev:web": "pnpm --filter @aioption/web dev",
     "build": "pnpm --recursive --if-present build",
     "typecheck": "pnpm --recursive --if-present typecheck",
-    "test": "pnpm --recursive --if-present test",
+    "test": "pnpm -r test",
+    "test:integration": "pnpm --filter @aioption/server exec vitest run test/phase7Integration.test.ts test/uatReset.test.ts test/testnetConfig.test.ts",
+    "audit": "pnpm audit --audit-level high",
+    "verify": "pnpm --filter @aioption/shared build && pnpm typecheck && pnpm test && pnpm --filter @aioption/web build",
     "lint": "pnpm --recursive --if-present lint",
     "clean": "pnpm --recursive --if-present clean"
   },

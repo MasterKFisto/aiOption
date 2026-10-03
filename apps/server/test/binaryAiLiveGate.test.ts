@@ -44,6 +44,8 @@ describe('AI binary LIVE-mode safety gate', () => {
     vi.resetModules();
     process.env['DB_PATH'] = dbPath;
     process.env['TRADING_MODE'] = 'LIVE';
+    // Phase 7: LIVE mode requires an explicit real-funds acknowledgement.
+    process.env['LIVE_MODE_CONFIRM'] = 'I_UNDERSTAND_REAL_FUNDS';
     process.env['AI_BINARY_ENABLED'] = 'true';
     process.env['AI_BINARY_LIVE_AUTO_TRADING_ENABLED'] = 'false';
     const connection = await import('../src/db/connection.js');

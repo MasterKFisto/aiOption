@@ -31,6 +31,9 @@ import { tradingLoop } from './scheduler/tradingLoop.js';
 import { createOriginMatcher, createRequestGuard } from './security/requestGuard.js';
 import { startValuationScheduler, stopValuationScheduler } from './valuation/valuationScheduler.js';
 import { startDepositSync, stopDepositSync } from './services/depositSyncService.js';
+import { startTronProbe, stopTronProbe } from './services/tronStatusService.js';
+import { adminRoutes } from './admin/adminRoutes.js';
+import { registerWebApp } from './webApp.js';
 
 /**
  * Builds the Fastify app: logger, CORS, DB init, routes, health check, and the
@@ -116,9 +119,13 @@ export async function buildApp() {
   await app.register(tronRoutes, { prefix: '/api' });
   await app.register(walletRecordsRoutes, { prefix: '/api' });
 
+  // Admin / UAT endpoints — 404 unless ENABLE_ADMIN_API=true (Phase 7).
+  await app.register(adminRoutes, { prefix: '/api' });
+
   // Background loops: live market polling + Tron deposit sync.
   liveMarket.start();
   startDepositSync();
+  startTronProbe();
   startBinarySettlement(binaryService);
   const binarySession = getBinarySessionService();
   const aiBinary = getAiBinaryService();
@@ -129,6 +136,7 @@ export async function buildApp() {
     stopValuationScheduler();
     liveMarket.stop();
     stopDepositSync();
+    stopTronProbe();
     stopBinarySettlement();
     stopAiBinaryScheduler();
     stopOptionSettlement();
@@ -146,11 +154,23 @@ export async function buildApp() {
     return {
       status: 'ok',
       mode: config.MODE,
+      // Phase 7: safety posture for the ECS health check (no secrets).
+      tronMode: config.TRON_MODE,
+      liveTronWithdrawalsEnabled: config.ENABLE_LIVE_TRON_WITHDRAWALS,
+      binaryLiveTradingEnabled: config.BINARY_LIVE_TRADING_ENABLED,
+      aiBinaryLiveAutoTradingEnabled: config.AI_BINARY_LIVE_AUTO_TRADING_ENABLED,
+      adminApiEnabled: config.ENABLE_ADMIN_API,
       database: dbCheck?.ok === 1 ? 'ok' : 'error',
       timestamp: new Date().toISOString(),
       uptimeSeconds: Math.round(process.uptime()),
     };
   });
+
+  // Production: serve the built SPA from the same origin (Phase 7). Only the
+  // dist directory is exposed — never data/, backups/ or .env.
+  if (config.WEB_DIST_DIR) {
+    await registerWebApp(app, config.WEB_DIST_DIR);
+  }
 
   return app;
 }
