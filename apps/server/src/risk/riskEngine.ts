@@ -7,6 +7,8 @@ import { publishEvent } from '../events/eventBus.js';
 import { optionService } from '../options/optionService.js';
 import type { OptionService } from '../options/optionService.js';
 import type { WalletService } from '../services/walletService.js';
+import { directionGuard } from '../strategy/directionGuard.js';
+import type { DirectionGuard } from '../strategy/directionGuard.js';
 
 export interface RiskEvaluation {
   approved: boolean;
@@ -18,7 +20,7 @@ export interface RiskEvaluation {
  * the account's loss limit:
  *
  *   1. trading must be enabled
- *   2. open positions must be below `maxOpenPositions`
+ *   2. open positions must be below `maxOpenPositions` (0 = unlimited, default)
  *   3. the proposed trade size must equal the fixed `FIXED_TRADE_SIZE_USD`
  *   4. if equity <= startingEquity * (1 - lossLimitPercent / 100): close all
  *      open positions, disable trading, and log a risk event
@@ -31,6 +33,7 @@ export class RiskEngine {
   constructor(
     wallet: WalletService,
     private readonly options: OptionService = optionService,
+    private readonly guard: DirectionGuard = directionGuard,
   ) {
     void wallet;
   }
@@ -76,14 +79,26 @@ export class RiskEngine {
           `for a ${decision.proposedTradeSizeUsd} trade`,
       };
     }
-    const openPositions = listPositions('OPEN');
-    if (openPositions.length >= account.maxOpenPositions) {
-      return {
-        approved: false,
-        reason:
-          `open positions (${openPositions.length}) reached the limit ` +
-          `(${account.maxOpenPositions})`,
-      };
+    // Open-position cap: 0 (default) = unlimited number of trades. Money is
+    // protected by the stake, available-balance and loss limits above/below.
+    if (account.maxOpenPositions > 0) {
+      const openPositions = listPositions('OPEN');
+      if (openPositions.length >= account.maxOpenPositions) {
+        return {
+          approved: false,
+          reason:
+            `open positions (${openPositions.length}) reached the limit ` +
+            `(${account.maxOpenPositions})`,
+        };
+      }
+    }
+    // Phase 6.5.2: anti one-sided-loop — the signal engine already rebalances
+    // a streak-blocked side to the opposite one; this is the final safety net
+    // (blocks only this direction; the opposite stays allowed).
+    const direction = decision.signal === 'BULLISH' ? 'CALL' : 'PUT';
+    const directional = this.guard.check(direction);
+    if (!directional.allowed) {
+      return { approved: false, reason: directional.reason };
     }
     return { approved: true, reason: null };
   }

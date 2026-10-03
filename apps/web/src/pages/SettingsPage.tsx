@@ -54,6 +54,22 @@ export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } =
 
   const tradingEnabled = summary?.account.tradingEnabled ?? false;
 
+  const { data: binaryMode } = useQuery({
+    queryKey: ['binary-unrealized-mode'],
+    queryFn: api.binaryUnrealizedMode,
+  });
+  const binaryModeMutation = useMutation({
+    mutationFn: api.setBinaryUnrealizedMode,
+    onSuccess: (result) => {
+      messageApi.success(
+        result.mode === 'ESTIMATED' ? 'Estimated binary PnL shown' : 'Conservative binary accounting',
+      );
+      void queryClient.invalidateQueries({ queryKey: ['binary-unrealized-mode'] });
+      invalidate();
+    },
+    onError: (err) => messageApi.error((err as Error).message),
+  });
+
   return (
     <div style={{ maxWidth: 480 }}>
       {contextHolder}
@@ -67,8 +83,13 @@ export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } =
           layout="vertical"
           onFinish={(values) => updateMutation.mutate(values)}
         >
-          <Form.Item name="maxOpenPositions" label="Max open positions" rules={[{ required: true }]}>
-            <InputNumber min={1} max={100} style={{ width: '100%' }} />
+          <Form.Item
+            name="maxOpenPositions"
+            label="Max open positions (0 = unlimited)"
+            rules={[{ required: true }]}
+            extra="0 means no limit on the number of trades; stakes, balance and loss limits still apply."
+          >
+            <InputNumber min={0} max={1000} precision={0} style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item
             name="lossLimitPercent"
@@ -92,6 +113,27 @@ export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } =
             Save settings
           </Button>
         </Form>
+      </Card>
+
+      <Divider />
+
+      <Card title="Profit &amp; loss display">
+        <Typography.Paragraph style={{ marginBottom: 8 }}>
+          Show estimated binary PnL:{' '}
+          <Switch
+            aria-label="Show estimated binary PnL"
+            checked={binaryMode?.mode === 'ESTIMATED'}
+            loading={binaryModeMutation.isPending}
+            onChange={(checked) => binaryModeMutation.mutate(checked)}
+            checkedChildren="ON"
+            unCheckedChildren="OFF"
+          />
+        </Typography.Paragraph>
+        <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+          OFF (default): open binary contracts add nothing to Unrealized PnL; their locked stake is
+          shown as Open Binary Exposure. ON: an extra, clearly labelled “Estimated Binary PnL” is
+          shown — it is never added to Unrealized or Realized PnL.
+        </Typography.Paragraph>
       </Card>
 
       <Divider />

@@ -8,7 +8,8 @@ import { getAccount, updateAccount } from '../db/repositories.js';
 import { tradingLoop } from '../scheduler/tradingLoop.js';
 
 const riskSettingsSchema = z.object({
-  maxOpenPositions: z.coerce.number().int().min(1).max(100).optional(),
+  // 0 = unlimited (no cap on the number of open trades).
+  maxOpenPositions: z.coerce.number().int().min(0).max(1000).optional(),
   // Daily loss limit: safe maximum of 80% unless configured otherwise.
   lossLimitPercent: z.coerce.number().min(0).max(80).optional(),
   fixedTradeSizeUsd: z.coerce.number().positive().optional(),

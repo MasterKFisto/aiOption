@@ -1,10 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { config } from '../config.js';
 import { WalletService } from '../services/walletService.js';
 
 const amountSchema = z.object({
-  amount: z.coerce.number().positive(),
+  // Upper bound: no single paper movement above 1,000,000 USDC.
+  amount: z.coerce.number().positive().max(1_000_000),
   description: z.string().trim().max(500).optional(),
 });
 
@@ -18,6 +20,19 @@ const amountSchema = z.object({
  */
 export async function walletRoutes(app: FastifyInstance): Promise<void> {
   const wallet = new WalletService();
+
+  // Security: paper (fake) deposits/withdrawals must never touch a real
+  // account. Same rule as /deposits/simulate — allowed only in paper mode or
+  // with the simulated Tron network. Otherwise anyone reaching the API could
+  // mint trading balance out of thin air in TESTNET/LIVE.
+  app.addHook('preHandler', async (request, reply) => {
+    if (request.method !== 'GET' && config.MODE !== 'PAPER' && config.TRON_MODE !== 'SIMULATED') {
+      return reply
+        .code(403)
+        .send({ error: 'paper wallet operations are only available in paper/simulated mode' });
+    }
+    return undefined;
+  });
 
   app.get('/balances', async () => wallet.getBalances());
 

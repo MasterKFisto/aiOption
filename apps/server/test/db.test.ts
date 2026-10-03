@@ -87,7 +87,7 @@ describe('account repository', () => {
     expect(account.equity).toBe(0);
     expect(account.baseCurrency).toBe('USDC');
     expect(account.fixedTradeSizeUsd).toBe(10);
-    expect(account.maxOpenPositions).toBe(5);
+    expect(account.maxOpenPositions).toBe(0); // Phase 6.5.2: 0 = unlimited trades
     expect(account.lossLimitPercent).toBe(40); // Phase 6.4 default
     expect(account.tradingEnabled).toBe(false);
     expect(account.startingEquity).toBe(0);

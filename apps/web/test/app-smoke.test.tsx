@@ -38,7 +38,7 @@ function stubFetch(): void {
         updatedAt: new Date().toISOString(),
       },
       realizedPnl: 0,
-      unrealizedPnl: 0,
+      unrealizedPnl: 2.35,
       loopRunning: false,
       dailyLossLimitPercent: 40,
       dailyLossRemainingUsd: 600,
@@ -48,7 +48,16 @@ function stubFetch(): void {
       binarySessionGainRemainingUsd: 50,
       binarySessionGainLimitReached: false,
       aiBinarySessionProfitUsd: 0,
+      availableBalance: 800,
+      lockedBalance: 200,
+      totalEquity: 1000,
+      openClassicUnrealizedPnl: 2.35,
+      openBinaryExposure: 15,
+      openBinaryCount: 2,
+      estimatedBinaryUnrealizedPnl: null,
+      binaryUnrealizedMode: 'CONSERVATIVE',
     },
+    '/api/settings/binary-unrealized': { mode: 'CONSERVATIVE' },
     '/api/binary/session-stats': {
       sessionStartedAt: new Date().toISOString(),
       manualNetGain: 0,
@@ -166,7 +175,34 @@ function stubFetch(): void {
       maxPriceStaleMs: 3000,
       settlementSource: 'INTERNAL_MARKET_FEED',
     },
-    '/api/binary/open': [],
+    '/api/binary/open': [
+      {
+        id: 91,
+        asset: 'BTC/USDC',
+        direction: 'UP',
+        stakeUsd: 10,
+        payoutRatio: 0.8,
+        potentialProfitUsd: 8,
+        totalReturnIfWinUsd: 18,
+        entryPrice: 66000,
+        settlementPrice: null,
+        status: 'OPEN',
+        result: null,
+        openedAt: new Date(Date.now() - 2000).toISOString(),
+        expiresAt: new Date(Date.now() + 8000).toISOString(),
+        settledAt: null,
+        marketDataSource: 'COINBASE',
+        source: 'AI_BINARY',
+        rejectionReason: null,
+        notes: null,
+        currentStatus: 'LOSING',
+        currentPrice: 65990,
+        timeRemainingMs: 8000,
+        potentialProfit: 8,
+        potentialLoss: 10,
+        estimatedUnrealizedPnl: null,
+      },
+    ],
     '/api/binary/history?limit=10': [],
     '/api/binary/history?limit=20': [],
     '/api/binary/history?limit=100': [],
@@ -229,6 +265,88 @@ function stubFetch(): void {
       availableBalance: 800,
       openPositionCount: 1,
     },
+    '/api/classic/strategy': {
+      settings: {
+        rsiPeriod: 14,
+        rsiOverbought: 70,
+        rsiOversold: 30,
+        requireNeutralCooldown: true,
+        maxConsecutiveSameDirection: 3,
+        cooldownAfterMaxConsecutiveMs: 300000,
+      },
+      direction: {
+        consecutivePutCount: 3,
+        consecutiveCallCount: 0,
+        putBlockedUntil: new Date(Date.now() + 240_000).toISOString(),
+        callBlockedUntil: null,
+        lastDirectionalSignal: 'PUT',
+        neutralSeenSinceLastDirection: false,
+      },
+    },
+    '/api/ai/decisions?limit=100': [
+      {
+        id: 41,
+        symbol: 'BTC/USDT',
+        signal: 'NEUTRAL',
+        action: 'HOLD',
+        confidence: 0.5,
+        expectedReturn: 0,
+        proposedTradeSizeUsd: 10,
+        rationale: 'NEUTRAL — RSI Oversold (24.3 < 30) — PUT refused',
+        executed: false,
+        positionId: null,
+        createdAt: new Date().toISOString(),
+        features: {
+          currentPrice: 58321.5,
+          momentumPercent: -0.84,
+          momentumPeriod: 24,
+          rsi: 24.3,
+          rsiPeriod: 14,
+          rsiOverbought: 70,
+          rsiOversold: 30,
+          volatilityPercent: 41.2,
+          volatilityThreshold: 120,
+          regime: 'OVERSOLD',
+          rawSignal: 'BEARISH',
+          consecutivePutCount: 2,
+          consecutiveCallCount: 0,
+          finalSignal: 'NEUTRAL',
+          filterReason: 'RSI Oversold (24.3 < 30) — PUT refused',
+          rejectionReason: null,
+        },
+      },
+      {
+        id: 40,
+        symbol: 'BTC/USDT',
+        signal: 'BEARISH',
+        action: 'OPEN_PUT',
+        confidence: 0.71,
+        expectedReturn: -0.004,
+        proposedTradeSizeUsd: 10,
+        rationale: 'PUT — momentum down | Blocked: Max consecutive PUTs reached (3). Directional bias blocked.',
+        executed: false,
+        positionId: null,
+        createdAt: new Date().toISOString(),
+        features: {
+          currentPrice: 58900,
+          momentumPercent: -0.4,
+          momentumPeriod: 24,
+          rsi: 41.7,
+          rsiPeriod: 14,
+          rsiOverbought: 70,
+          rsiOversold: 30,
+          volatilityPercent: 39,
+          volatilityThreshold: 120,
+          regime: 'NORMAL',
+          rawSignal: 'BEARISH',
+          consecutivePutCount: 3,
+          consecutiveCallCount: 0,
+          finalSignal: 'PUT',
+          filterReason: null,
+          rejectionReason: 'Max consecutive PUTs reached (3). Directional bias blocked.',
+        },
+      },
+    ],
     '/api/classic/status': {
       tradingEnabled: false,
       loopRunning: false,
@@ -473,6 +591,15 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('AI binary session profit')).toBeTruthy();
       expect(screen.getAllByText(/Daily loss limit/).length).toBeGreaterThan(0);
       expect(screen.getByText('Loss limit floor')).toBeTruthy();
+      // Phase 6.5.3: clear realized / unrealized / binary exposure split.
+      expect(screen.getByText('Realized PnL (settled)')).toBeTruthy();
+      expect(screen.getByTestId('unrealized-title').textContent).toContain('Unrealized PnL');
+      expect(screen.getByLabelText('About Unrealized PnL')).toBeTruthy();
+      expect(screen.getByText('Open Classic Options PnL')).toBeTruthy();
+      expect(screen.getByText('Open Binary Exposure')).toBeTruthy();
+      expect(screen.getByText(/USDC \(2 open\)/)).toBeTruthy();
+      // Conservative mode: no estimated binary PnL shown.
+      expect(screen.queryByTestId('estimated-binary-title')).toBeNull();
     });
   });
 
@@ -510,6 +637,57 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('USDC Tron trade address')).toBeTruthy();
       expect(screen.getByTestId('usdc-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
       expect(screen.getByText('Valid Tron address')).toBeTruthy();
+    });
+  });
+
+  it('Phase 6.5.2: Advanced AI Settings show RSI thresholds, streak counts and cooldowns', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByText('Advanced AI Settings'));
+    await waitFor(() => {
+      expect(screen.getByText('RSI Overbought (51–99)')).toBeTruthy();
+      expect(screen.getByText('RSI Oversold (1–49)')).toBeTruthy();
+      expect(screen.getByText('Max consecutive same direction')).toBeTruthy();
+      expect(screen.getByText('Cooldown after max consecutive (min)')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Save AI Settings' })).toBeTruthy();
+      const state = screen.getByTestId('direction-state').textContent ?? '';
+      expect(state).toContain('3 consecutive PUT');
+      expect(state).toContain('PUT blocked until');
+      expect(state).toContain('CALL allowed');
+    });
+  });
+
+  it('Phase 6.5.2: AI Decisions page shows RSI, streaks and why a signal was blocked', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ConfigProvider>
+          <App />
+        </ConfigProvider>
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByText('AI Decisions'));
+    await waitFor(() => {
+      expect(screen.getByText('24.3')).toBeTruthy(); // RSI value
+      expect(screen.getByText('Blocked: RSI Oversold (24.3 < 30) — PUT refused')).toBeTruthy();
+      expect(
+        screen.getByText('Blocked: Max consecutive PUTs reached (3). Directional bias blocked.'),
+      ).toBeTruthy();
+      expect(screen.getByText('3 / 0')).toBeTruthy(); // streak PUT / CALL
+    });
+    // Detail drawer with every feature.
+    fireEvent.click(screen.getByText('24.3'));
+    await waitFor(() => {
+      expect(screen.getByText('AI decision #41')).toBeTruthy();
+      expect(screen.getByText('Consecutive PUT')).toBeTruthy();
+      expect(screen.getByText('Strategy filter')).toBeTruthy();
+      expect(screen.getByText('Risk rejection')).toBeTruthy();
     });
   });
 
@@ -585,7 +763,12 @@ describe('App smoke test (blank-screen regression guard)', () => {
     await waitFor(() => {
       // Risk warning, ticket and open-contract panel must render.
       expect(screen.getByText('Binary Raise')).toBeTruthy();
-      expect(screen.getByText('Open binary contracts (0)')).toBeTruthy();
+      expect(screen.getByText('Open binary contracts (1)')).toBeTruthy();
+      // Phase 6.5.3: live status + potential profit/loss, no final result.
+      expect(screen.getByTestId('binary-status-91').textContent).toBe('Currently Losing');
+      expect(screen.getByText('Potential loss')).toBeTruthy();
+      expect(screen.getAllByText('-$10.00').length).toBeGreaterThan(0);
+      expect(screen.getByText(/result decided at expiry/)).toBeTruthy();
       expect(screen.getByText('Binary performance')).toBeTruthy();
       // The risk warning appears in both the page banner and the ticket.
       expect(screen.getAllByText(/extremely high risk/).length).toBeGreaterThan(0);

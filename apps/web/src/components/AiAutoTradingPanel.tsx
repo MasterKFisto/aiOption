@@ -54,7 +54,7 @@ export function AiAutoTradingPanel() {
   const [durationSeconds, setDurationSeconds] = useState(10);
   const [payoutRatio, setPayoutRatio] = useState(0.8);
   const [minConfidence, setMinConfidence] = useState(0.65);
-  const [maxOpenContracts, setMaxOpenContracts] = useState(1);
+  const [maxOpenContracts, setMaxOpenContracts] = useState(0);
   const [maxSessionLossUsd, setMaxSessionLossUsd] = useState(20);
   const [seeded, setSeeded] = useState(false);
   const [confirmingAuto, setConfirmingAuto] = useState(false);
@@ -66,7 +66,7 @@ export function AiAutoTradingPanel() {
       setDurationSeconds(status.durationSeconds);
       setPayoutRatio(status.payoutRatio);
       setMinConfidence(status.minConfidence ?? 0.65);
-      setMaxOpenContracts(status.maxOpenContracts ?? 1);
+      setMaxOpenContracts(status.maxOpenContracts ?? 0);
       setMaxSessionLossUsd(status.maxSessionLossUsd ?? 20);
       setSeeded(true);
     }
@@ -268,15 +268,16 @@ export function AiAutoTradingPanel() {
         </Col>
         <Col span={12}>
           <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            Max open contracts
+            Max open contracts (0 = unlimited)
           </Typography.Text>
           <div>
             <InputNumber
               size="small"
-              min={1}
-              max={10}
+              min={0}
+              max={1000}
+              precision={0}
               value={maxOpenContracts}
-              onChange={(value) => setMaxOpenContracts(value ?? 1)}
+              onChange={(value) => setMaxOpenContracts(value ?? 0)}
               style={{ width: '100%' }}
             />
           </div>

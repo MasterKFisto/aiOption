@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS account (
   locked_balance       REAL    NOT NULL DEFAULT 0,
   base_currency        TEXT    NOT NULL DEFAULT 'USDC',
   fixed_trade_size_usd REAL    NOT NULL DEFAULT 10,
-  max_open_positions   INTEGER NOT NULL DEFAULT 5,
+  max_open_positions   INTEGER NOT NULL DEFAULT 0,
   loss_limit_percent   REAL    NOT NULL DEFAULT 40,
   trading_enabled      INTEGER NOT NULL DEFAULT 0,
   starting_equity      REAL    NOT NULL DEFAULT 0,
@@ -71,7 +71,8 @@ CREATE TABLE IF NOT EXISTS ai_decisions (
   rationale               TEXT,
   executed                INTEGER NOT NULL DEFAULT 0 CHECK (executed IN (0, 1)),
   position_id             INTEGER REFERENCES positions (id) ON DELETE SET NULL,
-  created_at              TEXT    NOT NULL
+  created_at              TEXT    NOT NULL,
+  features_json           TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_ai_decisions_created_at ON ai_decisions (created_at);
@@ -371,6 +372,11 @@ export function runMigrations(db: Database.Database): void {
   if (!hasColumn(db, 'ai_decisions', 'proposed_trade_size_usd')) {
     db.exec('ALTER TABLE ai_decisions ADD COLUMN proposed_trade_size_usd REAL NOT NULL DEFAULT 0');
   }
+  // Phase 6.5.2: indicator snapshot (JSON) for every AI decision.
+  if (!hasColumn(db, 'ai_decisions', 'features_json')) {
+    db.exec('ALTER TABLE ai_decisions ADD COLUMN features_json TEXT');
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_positions_source_opened ON positions (source, opened_at)');
 
   // Seed the single-row account; INSERT OR IGNORE keeps it idempotent.
   const now = new Date().toISOString();
@@ -397,9 +403,30 @@ export function runMigrations(db: Database.Database): void {
     ).run(MIGRATION_6_5_1_MARKER, 'done', new Date().toISOString());
   }
 
+  // Phase 6.5.2 (one-time): "never cap the number of trades" — existing
+  // trade-count caps become 0 (= unlimited). Marker-guarded so a cap the user
+  // sets afterwards is respected.
+  if (!getSettingRaw(db, MIGRATION_6_5_2_UNLIMITED_MARKER)) {
+    db.prepare('UPDATE account SET max_open_positions = 0').run();
+    db.prepare(
+      "UPDATE ai_binary_settings SET value = '0' WHERE key = 'max_open_contracts'",
+    ).run();
+    db.prepare(
+      'INSERT OR REPLACE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
+    ).run(MIGRATION_6_5_2_UNLIMITED_MARKER, 'done', new Date().toISOString());
+  }
+
+  // Phase 6.5.3: seed the binary unrealized-PnL display setting (default
+  // false = conservative). INSERT OR IGNORE preserves a value the user saved.
+  db.prepare(
+    "INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES ('binary_show_estimated_unrealized_pnl', ?, ?)",
+  ).run(process.env['BINARY_SHOW_ESTIMATED_UNREALIZED_PNL'] === 'true' ? 'true' : 'false', new Date().toISOString());
+
   // Locked balance must equal the sum of open stakes (classic + binary).
   recalculateLockedBalance(db);
 }
+
+const MIGRATION_6_5_2_UNLIMITED_MARKER = 'migration_6_5_2_unlimited_trades';
 
 const MIGRATION_6_5_1_MARKER = 'migration_6_5_1_classic_defaults';
 
@@ -524,6 +551,10 @@ function getSettingRaw(db: Database.Database, key: string): string | null {
 }
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
+  // Defence in depth: only internal, hard-coded identifiers ever reach here.
+  if (!/^[a-z_]+$/.test(table)) {
+    throw new Error(`invalid table name: ${table}`);
+  }
   const rows = db.prepare(`PRAGMA table_info(${table})`).all() as ReadonlyArray<{ name: string }>;
   return rows.some((row) => row.name === column);
 }

@@ -30,6 +30,16 @@ export interface BinaryContract {
   source: string;
   rejectionReason: string | null;
   notes: string | null;
+  /* ---- live fields, computed by GET /api/binary/open (Phase 6.5.3) ---- */
+  currentStatus?: 'WINNING' | 'LOSING' | 'FLAT';
+  currentPrice?: number;
+  timeRemainingMs?: number;
+  /** Profit if the contract wins (= potentialProfitUsd). */
+  potentialProfit?: number;
+  /** Loss if the contract loses (= stakeUsd). */
+  potentialLoss?: number;
+  /** Only when BINARY_SHOW_ESTIMATED_UNREALIZED_PNL is on; otherwise null. */
+  estimatedUnrealizedPnl?: number | null;
 }
 
 export interface BinaryQuote {

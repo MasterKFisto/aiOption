@@ -12,7 +12,8 @@ const settingsSchema = z.object({
   durationSeconds: z.coerce.number().int().positive().optional(),
   payoutRatio: z.coerce.number().positive().optional(),
   minConfidence: z.coerce.number().min(0).max(1).optional(),
-  maxOpenContracts: z.coerce.number().int().min(1).optional(),
+  // 0 = unlimited.
+  maxOpenContracts: z.coerce.number().int().min(0).max(1000).optional(),
   maxSessionLossUsd: z.coerce.number().positive().optional(),
   profitTargetEnabled: z.boolean().optional(),
   profitTargetUsd: z.coerce.number().positive().optional(),

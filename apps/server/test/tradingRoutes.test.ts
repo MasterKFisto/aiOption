@@ -117,7 +117,7 @@ describe('trading routes', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      maxOpenPositions: 5,
+      maxOpenPositions: 5, // set in beforeEach → untouched by a partial update
       lossLimitPercent: 12,
       fixedTradeSizeUsd: 10,
       postTradePromptEnabled: true,

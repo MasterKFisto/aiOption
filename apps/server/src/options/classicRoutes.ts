@@ -13,6 +13,11 @@ import {
 import { publishEvent } from '../events/eventBus.js';
 import { tradingLoop } from '../scheduler/tradingLoop.js';
 import type { TradingLoop } from '../scheduler/tradingLoop.js';
+import {
+  StrategySettingsError,
+  getStrategySettings,
+  updateStrategySettings,
+} from '../strategy/classicStrategySettings.js';
 import { ClassicSettingsError, getClassicSettingsStore } from './classicSettings.js';
 import { optionService } from './optionService.js';
 import type { OptionService } from './optionService.js';
@@ -24,6 +29,17 @@ const settingsSchema = z
     defaultDurationSeconds: z.number().int().positive().optional(),
     dailyLossLimitPercent: z.number().finite().optional(),
     totalLossLimitPercent: z.number().finite().optional(),
+  })
+  .strict();
+
+const strategySchema = z
+  .object({
+    rsiPeriod: z.number().int().optional(),
+    rsiOverbought: z.number().finite().optional(),
+    rsiOversold: z.number().finite().optional(),
+    requireNeutralCooldown: z.boolean().optional(),
+    maxConsecutiveSameDirection: z.number().int().optional(),
+    cooldownAfterMaxConsecutiveMs: z.number().int().optional(),
   })
   .strict();
 
@@ -144,4 +160,30 @@ export async function classicRoutes(
   });
 
   app.post('/classic/repair-locked-balance', async () => service.repairLockedBalance());
+
+  /* ---------------------- Phase 6.5.2: AI strategy ---------------------- */
+
+  // Applied to the live loop immediately: settings are read on every evaluation.
+  app.get('/classic/strategy', async () => ({
+    settings: getStrategySettings(),
+    direction: loop.directionState,
+  }));
+
+  app.put('/classic/strategy', async (request, reply) => {
+    const parsed = strategySchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: 'invalid request body', issues: parsed.error.issues });
+    }
+    try {
+      const update = Object.fromEntries(
+        Object.entries(parsed.data).filter(([, value]) => value !== undefined),
+      );
+      return { settings: updateStrategySettings(update), direction: loop.directionState };
+    } catch (err) {
+      if (err instanceof StrategySettingsError) {
+        return reply.code(400).send({ error: err.message });
+      }
+      throw err;
+    }
+  });
 }

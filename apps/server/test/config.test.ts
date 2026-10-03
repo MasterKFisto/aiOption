@@ -68,7 +68,26 @@ describe('config', () => {
     expect(config.BINARY_ALLOWED_PAYOUT_RATIOS).toEqual([0.5, 0.9]);
     expect(config.BINARY_ENABLED).toBe(false);
     expect(config.BINARY_LIVE_TRADING_ENABLED).toBe(false);
-    expect(config.BINARY_MAX_OPEN_CONTRACTS).toBe(3);
+    // Phase 6.5.2: no cap on the number of trades by default (0 = unlimited).
+    expect(config.BINARY_MAX_OPEN_CONTRACTS).toBe(0);
+    expect(config.AI_BINARY_MAX_OPEN_CONTRACTS).toBe(0);
+    expect(config.AI_BINARY_MAX_TRADES_PER_HOUR).toBe(0);
+    expect(config.MAX_OPEN_POSITIONS).toBeGreaterThanOrEqual(0);
+  });
+
+  it('raises stale-price thresholds that are too tight for the poll interval (Phase 6.5.2 fix)', async () => {
+    vi.resetModules();
+    process.env['MARKET_POLL_INTERVAL_MS'] = '3000';
+    process.env['OPTION_MAX_PRICE_STALE_MS'] = '3000';
+    try {
+      const { config } = await import('../src/config.js');
+      // 2 × poll + 2 s latency margin — a normal poll delay never looks stale.
+      expect(config.OPTION_MAX_PRICE_STALE_MS).toBe(8000);
+      expect(config.BINARY_MAX_PRICE_STALE_MS).toBeGreaterThanOrEqual(8000);
+    } finally {
+      delete process.env['MARKET_POLL_INTERVAL_MS'];
+      delete process.env['OPTION_MAX_PRICE_STALE_MS'];
+    }
   });
 
   it('fails fast when the AI duration is not an allowed binary duration', async () => {

@@ -76,7 +76,8 @@ export type RiskEventType =
   | 'AI_BINARY_STOPPED_BY_SESSION_GAIN_LIMIT'
   | 'CLASSIC_LOCKED_BALANCE_REPAIRED'
   | 'CLASSIC_TOTAL_LOSS_LIMIT_BLOCK'
-  | 'CLASSIC_EMERGENCY_REFUND';
+  | 'CLASSIC_EMERGENCY_REFUND'
+  | 'CLASSIC_MAX_CONSECUTIVE_DIRECTION';
 
 /** Single-row account record (always id = 1): equity, balances, limits, settings. */
 export interface Account {
@@ -182,6 +183,40 @@ export interface Transaction {
 export type MarketSignal = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
 
 /** A logged AI signal/decision. */
+/** Indicator snapshot stored with every classic AI decision (Phase 6.5.2). */
+export interface AiDecisionFeatures {
+  /** Latest close used for the evaluation. */
+  currentPrice: number;
+  /** % change over the momentum lookback. */
+  momentumPercent: number;
+  momentumPeriod: number;
+  /** RSI (Wilder) value; null when not enough candles. */
+  rsi: number | null;
+  rsiPeriod: number;
+  rsiOverbought: number;
+  rsiOversold: number;
+  /** Annualized volatility in percent. */
+  volatilityPercent: number;
+  volatilityThreshold: number;
+  /** RSI regime at the time of the decision. */
+  regime: 'OVERBOUGHT' | 'OVERSOLD' | 'NORMAL' | 'UNKNOWN';
+  /** Direction implied by momentum alone (before filters). */
+  rawSignal: MarketSignal;
+  /** Trailing same-direction streak of AI classic trades. */
+  consecutivePutCount: number;
+  consecutiveCallCount: number;
+  /** Final signal after all filters. */
+  finalSignal: 'CALL' | 'PUT' | 'NEUTRAL';
+  /** Why a strategy filter neutralized the signal, if any. */
+  filterReason: string | null;
+  /** Why the risk engine rejected the trade, if any (set after evaluation). */
+  rejectionReason: string | null;
+  /** Set when the AI took the opposite side because the preferred side hit its streak limit. */
+  rebalanceReason?: string | null;
+  /** Price data the decision was based on: LIVE (same feed as settlement) or SIMULATED. */
+  marketSource?: string;
+}
+
 export interface AiDecision {
   id: number;
   symbol: string;
@@ -201,6 +236,8 @@ export interface AiDecision {
   /** Position opened/closed as a result of this decision, if any. */
   positionId: number | null;
   createdAt: string;
+  /** Indicator snapshot (Phase 6.5.2); null for older decisions. */
+  features?: AiDecisionFeatures | null;
 }
 
 /** A risk-engine trigger (e.g. loss limit hit). */
@@ -240,6 +277,44 @@ export interface AccountSummary {
   binarySessionGainLimitReached: boolean;
   /** Latest AI binary session profit, in USD. */
   aiBinarySessionProfitUsd: number;
+  /* ------------------- Phase 6.5.3: PnL breakdown ------------------- */
+  /** Cash not locked by open positions (= account.cashBalance). */
+  availableBalance?: number;
+  /** Funds locked by open classic + binary positions. */
+  lockedBalance?: number;
+  /** Total equity incl. locked funds (= account.equity, excludes unrealized). */
+  totalEquity?: number;
+  /** Estimated mark-to-market of OPEN classic options (bounded). */
+  openClassicUnrealizedPnl?: number;
+  /** Total stake currently locked in OPEN binary contracts. */
+  openBinaryExposure?: number;
+  /** Number of OPEN binary contracts. */
+  openBinaryCount?: number;
+  /** Estimated binary PnL — only when binaryUnrealizedMode === 'ESTIMATED', else null. */
+  estimatedBinaryUnrealizedPnl?: number | null;
+  /** CONSERVATIVE = binary excluded from unrealized PnL; ESTIMATED = shown separately. */
+  binaryUnrealizedMode?: BinaryUnrealizedMode;
+}
+
+export type BinaryUnrealizedMode = 'CONSERVATIVE' | 'ESTIMATED';
+
+/** Live status of an open binary contract vs. the current price. */
+export type BinaryLiveStatus = 'WINNING' | 'LOSING' | 'FLAT';
+
+/** Unified position row returned by GET /api/positions (classic + binary). */
+export interface UnifiedPositionView {
+  positionType: 'CLASSIC' | 'BINARY';
+  id: number;
+  side: string;
+  status: string;
+  lockedStake: number;
+  entryPrice: number;
+  currentPrice: number;
+  /** Classic: estimated mark-to-market. Binary: 0 unless ESTIMATED mode. */
+  unrealizedPnl: number;
+  currentStatus: BinaryLiveStatus | null;
+  timeRemainingMs: number;
+  expiresAt: string | null;
 }
 
 /* ------------------------------ Tron transfers ---------------------------- */
@@ -332,7 +407,8 @@ export type ApiEventType =
   | 'wallet'
   | 'options'
   | 'classic'
-  | 'settings';
+  | 'settings'
+  | 'unrealized';
 
 /** Server-sent event pushed to the frontend. */
 export interface ApiEvent {
@@ -404,9 +480,13 @@ export type PositionUpdate = Partial<
 
 export type NewTransaction = Omit<Transaction, 'id' | 'createdAt'>;
 
-export type NewAiDecision = Omit<AiDecision, 'id' | 'createdAt' | 'executed' | 'positionId'> & {
+export type NewAiDecision = Omit<
+  AiDecision,
+  'id' | 'createdAt' | 'executed' | 'positionId' | 'features'
+> & {
   executed?: boolean;
   positionId?: number | null;
+  features?: AiDecisionFeatures | null;
 };
 
 export type NewRiskEvent = Omit<RiskEvent, 'id' | 'triggeredAt'>;
@@ -659,5 +739,33 @@ export interface WalletAddressesUpdate {
   withdrawalDestinationAddress?: string;
   /** Empty string clears the override (falls back to env/simulated). */
   trxFeeWalletAddress?: string;
+}
+
+
+/* --------------------------- Phase 6.5.2 types ----------------------------- */
+
+/** Classic AI strategy settings (GET/PUT /api/classic/strategy). */
+export interface ClassicStrategySettings {
+  rsiPeriod: number;
+  rsiOverbought: number;
+  rsiOversold: number;
+  /** Require one NEUTRAL signal before the AI may flip CALL ↔ PUT. */
+  requireNeutralCooldown: boolean;
+  maxConsecutiveSameDirection: number;
+  cooldownAfterMaxConsecutiveMs: number;
+}
+
+export type ClassicStrategySettingsUpdate = Partial<ClassicStrategySettings>;
+
+/** Live directional-streak state of the classic AI (for the control panel). */
+export interface ClassicDirectionState {
+  consecutivePutCount: number;
+  consecutiveCallCount: number;
+  /** ISO time until which PUTs / CALLs are blocked by the streak cooldown. */
+  putBlockedUntil: string | null;
+  callBlockedUntil: string | null;
+  /** Last non-neutral AI signal and whether a NEUTRAL has been seen since. */
+  lastDirectionalSignal: 'CALL' | 'PUT' | null;
+  neutralSeenSinceLastDirection: boolean;
 }
 

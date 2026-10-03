@@ -1,14 +1,20 @@
 import type { OptionSide } from '@aioption/shared';
 
-import { getAccount, markAiDecisionExecuted } from '../db/repositories.js';
+import {
+  getAccount,
+  markAiDecisionExecuted,
+  recordAiDecisionRejection,
+} from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
 import { logger } from '../logger.js';
-import { SimulatedMarketDataService } from '../market/marketDataService.js';
+import { ClassicMarketData } from '../market/classicMarketData.js';
 import { getClassicSettingsStore } from '../options/classicSettings.js';
 import { optionService } from '../options/optionService.js';
 import type { OptionService } from '../options/optionService.js';
 import { RiskEngine } from '../risk/riskEngine.js';
 import type { MarketDataProvider } from '../strategy/signalEngine.js';
+import { directionGuard } from '../strategy/directionGuard.js';
+import type { DirectionGuard } from '../strategy/directionGuard.js';
 import { SignalEngine } from '../strategy/signalEngine.js';
 import { WalletService } from '../services/walletService.js';
 
@@ -20,6 +26,8 @@ export interface TradingLoopOptions {
   wallet?: WalletService;
   /** Classic option service used to open AI positions (injectable for tests). */
   options?: OptionService;
+  /** Direction streak / flip guard (injectable for tests). */
+  guard?: DirectionGuard;
 }
 
 export interface LoopExecution {
@@ -49,6 +57,7 @@ const isBtc = (symbol: string): boolean => (symbol.split('/')[0] ?? '').toUpperC
 export class TradingLoop {
   private timer: NodeJS.Timeout | null = null;
   private running = false;
+  private ticking = false;
 
   private readonly intervalMs: number;
   private readonly market: MarketDataProvider;
@@ -56,14 +65,23 @@ export class TradingLoop {
   private readonly risk: RiskEngine;
   private readonly wallet: WalletService;
   private readonly options: OptionService;
+  private readonly guard: DirectionGuard;
 
   constructor(options: TradingLoopOptions = {}) {
     this.intervalMs = options.intervalMs ?? DEFAULT_INTERVAL_MS;
-    this.market = options.market ?? new SimulatedMarketDataService();
+    // Default: real BTC candles (same feed that settles the options), with
+    // the mean-reverting simulator as fallback when the live feed is down.
+    this.market = options.market ?? new ClassicMarketData();
     this.wallet = options.wallet ?? new WalletService();
-    this.engine = options.engine ?? new SignalEngine(this.market);
+    this.guard = options.guard ?? directionGuard;
+    this.engine = options.engine ?? new SignalEngine(this.market, { guard: this.guard });
     this.options = options.options ?? optionService;
-    this.risk = options.risk ?? new RiskEngine(this.wallet, this.options);
+    this.risk = options.risk ?? new RiskEngine(this.wallet, this.options, this.guard);
+  }
+
+  /** Direction streak state (for the Classic status panel). */
+  get directionState() {
+    return this.guard.state();
   }
 
   get isRunning(): boolean {
@@ -102,6 +120,12 @@ export class TradingLoop {
       skipped: [],
       halted: false,
     };
+    // Never run two ticks concurrently (live candle fetch is async).
+    if (this.ticking) {
+      result.skipped.push({ symbol: '*', reason: 'previous tick still running' });
+      return result;
+    }
+    this.ticking = true;
 
     try {
       // 1. Loss-limit gate (also disables trading + closes positions on trigger).
@@ -116,21 +140,31 @@ export class TradingLoop {
         return result;
       }
 
+      // 3a. Refresh market data (live BTC candles) before evaluating.
+      await this.market.prepare?.();
+
       // 3. Signal -> risk -> execute per symbol.
       for (const symbol of result.symbols) {
-        const decision = this.engine.evaluate(symbol);
-        const verdict = this.risk.evaluate(decision);
-        if (!verdict.approved) {
-          result.skipped.push({ symbol, reason: verdict.reason ?? 'rejected by risk engine' });
-          logger.info({ symbol, reason: verdict.reason }, 'trade skipped');
+        // Phase 6.5.1: classic options settle against the BTC/USDC live feed
+        // only — never evaluate/open other underlyings (e.g. ETH) that would
+        // be settled against the wrong price (and would pollute the
+        // direction streak of the AI).
+        if (!isBtc(symbol)) {
+          result.skipped.push({ symbol, reason: 'classic options trade BTC/USDC only' });
           continue;
         }
 
-        // Phase 6.5.1: classic options settle against the BTC/USDC live feed
-        // only — never open positions on other underlyings (e.g. ETH) that
-        // would be settled against the wrong price.
-        if (!isBtc(symbol)) {
-          result.skipped.push({ symbol, reason: 'classic options trade BTC/USDC only' });
+        const decision = this.engine.evaluate(symbol);
+        const verdict = this.risk.evaluate(decision);
+        if (!verdict.approved) {
+          const reason = verdict.reason ?? 'rejected by risk engine';
+          result.skipped.push({ symbol, reason });
+          // Phase 6.5.2: store WHY on the decision (shown in the UI). Neutral
+          // signals already carry their strategy filter reason.
+          if (decision.signal !== 'NEUTRAL') {
+            recordAiDecisionRejection(decision.id, reason);
+          }
+          logger.info({ symbol, reason }, 'trade skipped');
           continue;
         }
 
@@ -147,6 +181,7 @@ export class TradingLoop {
             source: 'AI',
           });
           markAiDecisionExecuted(decision.id, position.id);
+          this.guard.recordExecution(side);
           publishEvent('trade', { action: 'OPENED', position });
 
           result.executed.push({ symbol, decisionId: decision.id, positionId: position.id });
@@ -154,11 +189,14 @@ export class TradingLoop {
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
           result.skipped.push({ symbol, reason: message });
+          recordAiDecisionRejection(decision.id, message);
           logger.error({ symbol, err }, 'execution failed');
         }
       }
     } catch (err) {
       logger.error({ err }, 'trading loop tick failed');
+    } finally {
+      this.ticking = false;
     }
 
     return result;

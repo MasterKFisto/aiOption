@@ -129,13 +129,29 @@ describe('BinaryService quotes and validation', () => {
     expect(() => service.openBinaryContract(openInput({ stakeUsd: 10 }))).toThrow(/insufficient balance/);
   });
 
-  it('blocks opening above the max open contracts and logs a risk event', () => {
-    for (let i = 0; i < 3; i++) {
+  it('has NO cap on the number of open contracts by default (BINARY_MAX_OPEN_CONTRACTS=0)', () => {
+    for (let i = 0; i < 12; i++) {
       feed.push(100 + i);
       service.openBinaryContract(openInput({ stakeUsd: 1 }));
     }
-    expect(() => service.openBinaryContract(openInput({ stakeUsd: 1 }))).toThrow(/maximum of 3/);
-    expect(repo.listRiskEvents()[0]?.type).toBe('BINARY_MAX_OPEN_CONTRACTS_REACHED');
+    expect(repo.listRiskEvents().some((e) => e.type === 'BINARY_MAX_OPEN_CONTRACTS_REACHED')).toBe(false);
+  });
+
+  it('still enforces an explicitly configured cap and logs a risk event', async () => {
+    const { config } = await import('../src/config.js');
+    const mutable = config as { BINARY_MAX_OPEN_CONTRACTS: number };
+    const original = mutable.BINARY_MAX_OPEN_CONTRACTS;
+    mutable.BINARY_MAX_OPEN_CONTRACTS = 3;
+    try {
+      for (let i = 0; i < 3; i++) {
+        feed.push(100 + i);
+        service.openBinaryContract(openInput({ stakeUsd: 1 }));
+      }
+      expect(() => service.openBinaryContract(openInput({ stakeUsd: 1 }))).toThrow(/maximum of 3/);
+      expect(repo.listRiskEvents()[0]?.type).toBe('BINARY_MAX_OPEN_CONTRACTS_REACHED');
+    } finally {
+      mutable.BINARY_MAX_OPEN_CONTRACTS = original;
+    }
   });
 
   it('blocks opening when the market feed is stale', () => {
@@ -219,9 +235,13 @@ describe('BinaryService open + settlement', () => {
     expect(repo.getAccount().cashBalance).toBe(108);
   });
 
-  it('errors + refunds when no price arrives within the stale window', () => {
+  it('errors + refunds when no price arrives within the stale window', async () => {
+    const { config } = await import('../src/config.js');
     const contract = service.openBinaryContract(openInput());
-    const settleAt = new Date(new Date(contract.expiresAt).getTime() + 5000).toISOString();
+    // Wait just past the configured stale window (8 s by default since 6.5.2).
+    const settleAt = new Date(
+      new Date(contract.expiresAt).getTime() + config.BINARY_MAX_PRICE_STALE_MS + 2000,
+    ).toISOString();
 
     expect(service.settleDueContracts(settleAt)).toBe(1);
 

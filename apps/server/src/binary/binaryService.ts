@@ -121,7 +121,8 @@ export class BinaryService {
       );
     }
 
-    if (countOpenBinaryContracts() >= config.BINARY_MAX_OPEN_CONTRACTS) {
+    // 0 = unlimited (default): no cap on the number of binary trades.
+    if (config.BINARY_MAX_OPEN_CONTRACTS > 0 && countOpenBinaryContracts() >= config.BINARY_MAX_OPEN_CONTRACTS) {
       logRiskEvent({
         type: 'BINARY_MAX_OPEN_CONTRACTS_REACHED',
         message: `binary open blocked: ${config.BINARY_MAX_OPEN_CONTRACTS} open contracts reached`,
@@ -184,6 +185,11 @@ export class BinaryService {
       }
     }
     return settled;
+  }
+
+  /** Latest feed price (0 if none yet) — used for live contract status. */
+  currentPrice(): number {
+    return this.feed.getLatestTick()?.price ?? 0;
   }
 
   getOpenContracts(): BinaryContract[] {

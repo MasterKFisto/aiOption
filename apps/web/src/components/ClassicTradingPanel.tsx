@@ -21,6 +21,7 @@ import type { ClassicBlockedReason, ClassicSettingsUpdate } from '@aioption/shar
 
 import { api } from '../api/client';
 import { emitUiEvent } from '../api/events';
+import { AdvancedAiSettings } from './AdvancedAiSettings';
 
 export const durationLabel = (seconds: number): string =>
   seconds >= 60 ? `${seconds / 60} min` : `${seconds}s`;
@@ -240,6 +241,7 @@ export function ClassicTradingPanel() {
           Save Settings
         </Button>
       </Form>
+      <AdvancedAiSettings />
     </Card>
   );
 }

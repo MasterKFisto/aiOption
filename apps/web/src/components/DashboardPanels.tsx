@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { Card, List, Table, Tag, Typography } from 'antd';
+import { InfoCircleOutlined } from '@ant-design/icons';
+import { Card, List, Table, Tag, Tooltip, Typography } from 'antd';
 import type { TableProps } from 'antd';
 import { useEffect, useState } from 'react';
 
 import type { AiDecision, Position, RiskEvent } from '@aioption/shared';
 
 import { api } from '../api/client';
+import { decisionOutcome } from './DecisionDetails';
 
 /** Seconds until an ISO expiry, recomputed on the client every second. */
 export function formatCountdown(expiresAt: string | null, nowMs: number): string {
@@ -79,11 +81,24 @@ export function OpenPositionsPanel() {
       render: (v: string) => <Tag color={v === 'AI' ? 'purple' : 'default'}>{v}</Tag>,
     },
     {
-      title: 'Unrealized PnL',
+      title: (
+        <Tooltip title="Live estimate from the current price and time left; bounded between −stake and +max profit. Final result is decided at expiry.">
+          Unrealized PnL (est.) <InfoCircleOutlined />
+        </Tooltip>
+      ),
       dataIndex: 'unrealizedPnl',
-      width: 120,
+      width: 150,
       render: (v: number | undefined) =>
-        v === undefined ? '—' : <span style={{ color: v >= 0 ? '#3f8600' : '#cf1322' }}>${v.toFixed(2)}</span>,
+        v === undefined ? (
+          '—'
+        ) : (
+          <span
+            data-testid="classic-unrealized"
+            style={{ color: v > 0 ? '#3f8600' : v < 0 ? '#cf1322' : 'inherit' }}
+          >
+            {v >= 0 ? '+' : '-'}${Math.abs(v).toFixed(2)}
+          </span>
+        ),
     },
     {
       title: 'Opened',
@@ -109,8 +124,9 @@ export function OpenPositionsPanel() {
 }
 
 export function RecentDecisionsPanel() {
+  // Own cache key: the AI Decisions page uses ['decisions'] with limit 100.
   const { data, isLoading } = useQuery({
-    queryKey: ['decisions'],
+    queryKey: ['decisions', 'recent', 5],
     queryFn: () => api.decisions(5),
     refetchInterval: 10000,
   });
@@ -121,25 +137,31 @@ export function RecentDecisionsPanel() {
         size="small"
         loading={isLoading}
         dataSource={data ?? []}
-        renderItem={(d: AiDecision) => (
-          <List.Item>
-            <List.Item.Meta
-              title={
-                <>
-                  <Tag
-                    color={d.signal === 'BULLISH' ? 'green' : d.signal === 'BEARISH' ? 'red' : 'default'}
-                  >
-                    {d.signal}
-                  </Tag>
-                  {d.symbol}
-                </>
-              }
-              description={`${(d.confidence * 100).toFixed(1)}% confidence · ${d.action} · ${
-                d.executed ? 'executed' : 'skipped'
-              }`}
-            />
-          </List.Item>
-        )}
+        renderItem={(d: AiDecision) => {
+          const final = d.features?.finalSignal;
+          const color =
+            final === 'CALL' || d.signal === 'BULLISH'
+              ? 'green'
+              : final === 'PUT' || d.signal === 'BEARISH'
+                ? 'red'
+                : 'default';
+          const rsiText = d.features?.rsi != null ? ` · RSI ${d.features.rsi.toFixed(1)}` : '';
+          return (
+            <List.Item>
+              <List.Item.Meta
+                title={
+                  <>
+                    <Tag color={color}>{final ?? d.signal}</Tag>
+                    {d.symbol}
+                  </>
+                }
+                description={`${(d.confidence * 100).toFixed(1)}% confidence${rsiText} · ${
+                  decisionOutcome(d).label
+                }`}
+              />
+            </List.Item>
+          );
+        }}
       />
     </Card>
   );

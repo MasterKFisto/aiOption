@@ -29,6 +29,7 @@ import { walletRoutes } from './routes/walletRoutes.js';
 import { withdrawalRoutes } from './routes/withdrawalRoutes.js';
 import { tradingLoop } from './scheduler/tradingLoop.js';
 import { createOriginMatcher, createRequestGuard } from './security/requestGuard.js';
+import { startValuationScheduler, stopValuationScheduler } from './valuation/valuationScheduler.js';
 import { startDepositSync, stopDepositSync } from './services/depositSyncService.js';
 
 /**
@@ -123,7 +124,9 @@ export async function buildApp() {
   const aiBinary = getAiBinaryService();
   startAiBinaryScheduler(aiBinary);
   startOptionSettlement(optionService);
+  startValuationScheduler();
   app.addHook('onClose', async () => {
+    stopValuationScheduler();
     liveMarket.stop();
     stopDepositSync();
     stopBinarySettlement();

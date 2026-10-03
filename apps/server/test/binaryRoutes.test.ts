@@ -41,7 +41,7 @@ describe('binary routes', () => {
     expect(body.allowedPayoutRatios).toEqual([0.5, 0.6, 0.7, 0.8, 0.9]);
     expect(body.minStakeUsd).toBe(1);
     expect(body.maxStakeUsd).toBe(50);
-    expect(body.maxOpenContracts).toBe(3);
+    expect(body.maxOpenContracts).toBe(0); // Phase 6.5.2: 0 = unlimited
   });
 
   it('GET /api/server-time returns ISO server time', async () => {

@@ -244,3 +244,74 @@ describe('GET /api/classic/history + POST /api/classic/repair-locked-balance', (
   });
 });
 
+
+describe('GET/PUT /api/classic/strategy (Phase 6.5.2)', () => {
+  it('returns the env defaults and the live direction state', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/classic/strategy' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().settings).toEqual({
+      rsiPeriod: 14,
+      rsiOverbought: 70,
+      rsiOversold: 30,
+      requireNeutralCooldown: true,
+      maxConsecutiveSameDirection: 3,
+      cooldownAfterMaxConsecutiveMs: 300_000,
+    });
+    expect(res.json().direction).toMatchObject({
+      consecutivePutCount: expect.any(Number),
+      consecutiveCallCount: expect.any(Number),
+      putBlockedUntil: null,
+      callBlockedUntil: null,
+    });
+  });
+
+  it('saves to app_settings (audited) and returns the new values', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/api/classic/strategy',
+      payload: { rsiOverbought: 75, rsiOversold: 25, maxConsecutiveSameDirection: 4, cooldownAfterMaxConsecutiveMs: 600_000 },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().settings).toMatchObject({
+      rsiOverbought: 75,
+      rsiOversold: 25,
+      maxConsecutiveSameDirection: 4,
+      cooldownAfterMaxConsecutiveMs: 600_000,
+    });
+    expect(repo.getAppSetting('classic_ai_rsi_overbought')?.value).toBe('75');
+    expect(repo.listSettingsAudit(10).map((e) => e.key)).toEqual(
+      expect.arrayContaining(['classic_ai_rsi_overbought', 'classic_max_consecutive_same_direction']),
+    );
+    // restore defaults for other tests
+    await app.inject({
+      method: 'PUT',
+      url: '/api/classic/strategy',
+      payload: { rsiOverbought: 70, rsiOversold: 30, maxConsecutiveSameDirection: 3, cooldownAfterMaxConsecutiveMs: 300_000 },
+    });
+  });
+
+  it('rejects invalid values and saves nothing', async () => {
+    const cases = [
+      { rsiOverbought: 50 },
+      { rsiOverbought: 100 },
+      { rsiOversold: 50 },
+      { rsiOversold: 0 },
+      { rsiPeriod: 1 },
+      { rsiPeriod: 14.5 },
+      { maxConsecutiveSameDirection: 0 },
+      { maxConsecutiveSameDirection: 21 },
+      { cooldownAfterMaxConsecutiveMs: -1 },
+      { cooldownAfterMaxConsecutiveMs: 86_400_001 },
+      { requireNeutralCooldown: 'yes' },
+      { unknown: 1 },
+    ];
+    for (const payload of cases) {
+      const res = await app.inject({ method: 'PUT', url: '/api/classic/strategy', payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    const settings = (await app.inject({ method: 'GET', url: '/api/classic/strategy' })).json().settings;
+    expect(settings.rsiOverbought).toBe(70);
+    expect(settings.maxConsecutiveSameDirection).toBe(3);
+  });
+});
+

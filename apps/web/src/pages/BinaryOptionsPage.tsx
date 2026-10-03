@@ -11,11 +11,12 @@ import {
   Statistic,
   Switch,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useEffect, useState } from 'react';
 
-import type { BinaryContract } from '@aioption/shared';
+import type { BinaryContract, BinaryLiveStatus } from '@aioption/shared';
 
 import { api } from '../api/client';
 import { subscribeUiEvents } from '../api/events';
@@ -57,6 +58,18 @@ function resultTag(contract: BinaryContract) {
   return <Tag>SETTLED</Tag>;
 }
 
+const STATUS_COLORS: Record<BinaryLiveStatus, string> = {
+  WINNING: 'green',
+  LOSING: 'red',
+  FLAT: 'default',
+};
+
+const STATUS_LABELS: Record<BinaryLiveStatus, string> = {
+  WINNING: 'Currently Winning',
+  LOSING: 'Currently Losing',
+  FLAT: 'Flat / No Change',
+};
+
 function BinaryContractCard({
   contract,
   nowMs,
@@ -70,8 +83,16 @@ function BinaryContractCard({
   const remainingMs = Math.max(new Date(contract.expiresAt).getTime() - nowMs, 0);
   const remainingSec = Math.ceil(remainingMs / 1000);
   const progress = Math.min(((totalMs - remainingMs) / totalMs) * 100, 100);
-  const winning = contract.direction === 'UP' ? currentPrice > contract.entryPrice : currentPrice < contract.entryPrice;
-  const color = currentPrice === contract.entryPrice ? 'default' : winning ? 'green' : 'red';
+  // Phase 6.5.3: live status from the server (falls back to a local compare).
+  const livePrice = contract.currentPrice && contract.currentPrice > 0 ? contract.currentPrice : currentPrice;
+  const status: BinaryLiveStatus =
+    contract.currentStatus ??
+    (livePrice === contract.entryPrice
+      ? 'FLAT'
+      : (contract.direction === 'UP') === livePrice > contract.entryPrice
+        ? 'WINNING'
+        : 'LOSING');
+  const color = STATUS_COLORS[status];
 
   return (
     <Card size="small">
@@ -90,11 +111,15 @@ function BinaryContractCard({
         </Col>
         <Col span={8}>
           <Typography.Text type="secondary">Current</Typography.Text>
-          <div>{currentPrice.toFixed(2)}</div>
+          <div>{livePrice.toFixed(2)}</div>
         </Col>
         <Col span={8}>
-          <Typography.Text type="secondary">Settlement</Typography.Text>
-          <div>{contract.settlementPrice?.toFixed(2) ?? '—'}</div>
+          <Typography.Text type="secondary">Status</Typography.Text>
+          <div>
+            <Tag color={color} data-testid={`binary-status-${contract.id}`}>
+              {STATUS_LABELS[status]}
+            </Tag>
+          </div>
         </Col>
         <Col span={8} style={{ marginTop: 8 }}>
           <Typography.Text type="secondary">Stake</Typography.Text>
@@ -106,10 +131,24 @@ function BinaryContractCard({
         </Col>
         <Col span={8} style={{ marginTop: 8 }}>
           <Typography.Text type="secondary">Potential profit</Typography.Text>
-          <div style={{ color: '#3f8600' }}>+${contract.potentialProfitUsd.toFixed(2)}</div>
+          <div style={{ color: '#3f8600' }}>+${(contract.potentialProfit ?? contract.potentialProfitUsd).toFixed(2)}</div>
         </Col>
+        <Col span={8} style={{ marginTop: 8 }}>
+          <Typography.Text type="secondary">Potential loss</Typography.Text>
+          <div style={{ color: '#cf1322' }}>-${(contract.potentialLoss ?? contract.stakeUsd).toFixed(2)}</div>
+        </Col>
+        {contract.estimatedUnrealizedPnl !== null && contract.estimatedUnrealizedPnl !== undefined && (
+          <Col span={16} style={{ marginTop: 8 }}>
+            <Tooltip title="Estimated only. Binary options settle at expiry.">
+              <Typography.Text type="secondary">Estimated PnL </Typography.Text>
+              <Typography.Text italic>≈ ${contract.estimatedUnrealizedPnl.toFixed(2)}</Typography.Text>
+            </Tooltip>
+          </Col>
+        )}
       </Row>
-      <div style={{ marginTop: 8 }}>{resultTag(contract)}</div>
+      <Typography.Paragraph type="secondary" style={{ fontSize: 11, margin: '8px 0 0' }}>
+        Stake locked · result decided at expiry (not yet profit or loss)
+      </Typography.Paragraph>
     </Card>
   );
 }

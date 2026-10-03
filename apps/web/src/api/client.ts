@@ -1,4 +1,7 @@
 import type {
+  ClassicDirectionState,
+  ClassicStrategySettings,
+  ClassicStrategySettingsUpdate,
   AddressValidation,
   ClassicSettings,
   ClassicSettingsUpdate,
@@ -33,6 +36,11 @@ import type {
   WalletRecordsSummary,
   Withdrawal,
 } from '@aioption/shared';
+
+export interface ClassicStrategyResponse {
+  settings: ClassicStrategySettings;
+  direction: ClassicDirectionState;
+}
 
 export interface RiskSettingsUpdate {
   maxOpenPositions?: number;
@@ -197,6 +205,23 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ amountTrx }),
+    }),
+  /* ----------------------------- Phase 6.5.3 ----------------------------- */
+  binaryUnrealizedMode: () =>
+    request<{ mode: 'CONSERVATIVE' | 'ESTIMATED' }>('/api/settings/binary-unrealized'),
+  setBinaryUnrealizedMode: (showEstimated: boolean) =>
+    request<{ mode: 'CONSERVATIVE' | 'ESTIMATED' }>('/api/settings/binary-unrealized', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showEstimated }),
+    }),
+  /* ----------------------------- Phase 6.5.2 ----------------------------- */
+  classicStrategy: () => request<ClassicStrategyResponse>('/api/classic/strategy'),
+  updateClassicStrategy: (patch: ClassicStrategySettingsUpdate) =>
+    request<ClassicStrategyResponse>('/api/classic/strategy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
     }),
   /* ----------------------------- Phase 6.5.1 ----------------------------- */
   classicSettings: () => request<ClassicSettings>('/api/classic/settings'),

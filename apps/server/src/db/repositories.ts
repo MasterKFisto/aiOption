@@ -2,6 +2,7 @@ import type {
   Account,
   AccountUpdate,
   AiDecision,
+  AiDecisionFeatures,
   Deposit,
   DepositStatus,
   NewAiDecision,
@@ -95,6 +96,7 @@ interface AiDecisionRow {
   executed: number;
   position_id: number | null;
   created_at: string;
+  features_json: string | null;
 }
 
 interface RiskEventRow {
@@ -185,7 +187,21 @@ const toAiDecision = (r: AiDecisionRow): AiDecision => ({
   executed: r.executed === 1,
   positionId: r.position_id,
   createdAt: r.created_at,
+  features: parseFeatures(r.features_json),
 });
+
+/** Parses a stored features JSON blob; malformed data never breaks a listing. */
+function parseFeatures(raw: string | null): AiDecisionFeatures | null {
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === 'object' ? (parsed as AiDecisionFeatures) : null;
+  } catch {
+    return null;
+  }
+}
 
 const toRiskEvent = (r: RiskEventRow): RiskEvent => ({
   id: r.id,
@@ -542,6 +558,7 @@ type AiDecisionBind = {
   executed: number;
   positionId: number | null;
   createdAt: string;
+  featuresJson: string | null;
 };
 
 /** Logs an AI signal/decision. */
@@ -550,9 +567,9 @@ export function logAiDecision(input: NewAiDecision): AiDecision {
   const result = getDb()
     .prepare<AiDecisionBind, unknown>(
       `INSERT INTO ai_decisions
-         (symbol, signal, action, confidence, expected_return, proposed_trade_size_usd, rationale, executed, position_id, created_at)
+         (symbol, signal, action, confidence, expected_return, proposed_trade_size_usd, rationale, executed, position_id, created_at, features_json)
        VALUES
-         (@symbol, @signal, @action, @confidence, @expectedReturn, @proposedTradeSizeUsd, @rationale, @executed, @positionId, @createdAt)`,
+         (@symbol, @signal, @action, @confidence, @expectedReturn, @proposedTradeSizeUsd, @rationale, @executed, @positionId, @createdAt, @featuresJson)`,
     )
     .run({
       symbol: input.symbol,
@@ -565,6 +582,7 @@ export function logAiDecision(input: NewAiDecision): AiDecision {
       executed: (input.executed ?? false) ? 1 : 0,
       positionId: input.positionId ?? null,
       createdAt,
+      featuresJson: input.features ? JSON.stringify(input.features) : null,
     });
 
   const row = getDb()
@@ -589,6 +607,42 @@ export function getAiDecisionById(id: number): AiDecision | null {
     .prepare<[number], AiDecisionRow>('SELECT * FROM ai_decisions WHERE id = ?')
     .get(id);
   return row ? toAiDecision(row) : null;
+}
+
+/**
+ * Records the risk-engine / execution outcome on a decision (Phase 6.5.2):
+ * merges `rejectionReason` into features_json and appends it to the
+ * rationale so the UI shows exactly why a trade was not taken.
+ */
+export function recordAiDecisionRejection(id: number, reason: string): AiDecision | null {
+  const current = getAiDecisionById(id);
+  if (!current) {
+    return null;
+  }
+  const features = current.features ? { ...current.features, rejectionReason: reason } : null;
+  getDb()
+    .prepare<[string | null, string, number], unknown>(
+      'UPDATE ai_decisions SET features_json = ?, rationale = ? WHERE id = ?',
+    )
+    .run(
+      features ? JSON.stringify(features) : null,
+      `${current.rationale ?? ''} | Blocked: ${reason}`.slice(0, 2000),
+      id,
+    );
+  return getAiDecisionById(id);
+}
+
+/**
+ * Most recent AI classic positions (newest first), used to compute the
+ * trailing same-direction streak. Manual trades never count.
+ */
+export function listRecentAiPositions(limit: number): Array<{ side: Position['side']; openedAt: string }> {
+  return getDb()
+    .prepare<[number], { side: string; opened_at: string }>(
+      "SELECT side, opened_at FROM positions WHERE source = 'AI' ORDER BY opened_at DESC, id DESC LIMIT ?",
+    )
+    .all(limit)
+    .map((r) => ({ side: r.side as Position['side'], openedAt: r.opened_at }));
 }
 
 /** Marks a decision as executed and links it to the position it created. */

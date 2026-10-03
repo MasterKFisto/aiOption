@@ -26,8 +26,8 @@ const envSchema = z.object({
   BASE_CURRENCY: z.string().trim().min(1).max(16).default('USDC'),
   /** Fixed trade size in USD for each option position. */
   FIXED_TRADE_SIZE_USD: z.coerce.number().positive().default(10),
-  /** Maximum number of concurrently open positions. */
-  MAX_OPEN_POSITIONS: z.coerce.number().int().min(1).default(5),
+  /** Maximum concurrently open classic positions (0 = unlimited, default). */
+  MAX_OPEN_POSITIONS: z.coerce.number().int().min(0).default(0),
   /** Daily loss limit as a percentage of account equity. */
   LOSS_LIMIT_PERCENT: z.coerce.number().min(0).max(100).default(40),
   /** Explicit daily loss limit alias (Phase 6.4). */
@@ -79,10 +79,17 @@ const envSchema = z.object({
   BINARY_ALLOWED_DURATIONS_SECONDS: z.string().trim().default('5,10'),
   /** Comma-separated allowed payout ratios as fractions. */
   BINARY_ALLOWED_PAYOUT_RATIOS: z.string().trim().default('0.5,0.6,0.7,0.8,0.9'),
-  BINARY_MAX_OPEN_CONTRACTS: z.coerce.number().int().min(1).default(3),
+  /** Max open binary contracts (0 = unlimited, default). */
+  BINARY_MAX_OPEN_CONTRACTS: z.coerce.number().int().min(0).default(0),
   /** Ticks older than this are considered stale for entry/settlement. */
-  BINARY_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(3000),
+  BINARY_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(8000),
   BINARY_SETTLEMENT_SOURCE: z.string().trim().default('INTERNAL_MARKET_FEED'),
+  /**
+   * Phase 6.5.3: false (default) = conservative — open binary contracts add 0
+   * to Unrealized PnL (shown as Open Binary Exposure). true = also show a
+   * separately labelled ESTIMATED binary PnL. Overridable from the UI.
+   */
+  BINARY_SHOW_ESTIMATED_UNREALIZED_PNL: z.enum(['true', 'false']).default('false'),
   /** Settlement scheduler interval in ms. */
   BINARY_SETTLEMENT_INTERVAL_MS: z.coerce.number().int().min(100).max(5000).default(250),
   /* --------------------------- AI binary trading ---------------------------- */
@@ -94,14 +101,16 @@ const envSchema = z.object({
   AI_BINARY_PAYOUT_RATIO: z.coerce.number().positive().default(0.8),
   AI_BINARY_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).default(0.65),
   AI_BINARY_EVALUATION_INTERVAL_MS: z.coerce.number().int().min(250).max(60000).default(1000),
-  AI_BINARY_MAX_OPEN_CONTRACTS: z.coerce.number().int().min(1).default(1),
+  /** Max open AI binary contracts (0 = unlimited, default). */
+  AI_BINARY_MAX_OPEN_CONTRACTS: z.coerce.number().int().min(0).default(0),
   AI_BINARY_MIN_TIME_BETWEEN_TRADES_MS: z.coerce.number().int().min(0).default(10000),
   AI_BINARY_COOLDOWN_AFTER_LOSS_MS: z.coerce.number().int().min(0).default(30000),
   AI_BINARY_MAX_CONSECUTIVE_LOSSES: z.coerce.number().int().min(1).default(3),
   AI_BINARY_MAX_SESSION_LOSS_USD: z.coerce.number().positive().default(20),
-  AI_BINARY_MAX_TRADES_PER_HOUR: z.coerce.number().int().min(1).default(30),
+  /** AI binary trades per rolling hour (0 = unlimited, default). */
+  AI_BINARY_MAX_TRADES_PER_HOUR: z.coerce.number().int().min(0).default(0),
   AI_BINARY_REQUIRE_SIGNAL_PERSISTENCE_TICKS: z.coerce.number().int().min(1).default(3),
-  AI_BINARY_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(3000),
+  AI_BINARY_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(8000),
   AI_BINARY_LIVE_AUTO_TRADING_ENABLED: z.enum(['true', 'false']).default('false'),
   /* ---------------------- classic options (6.4 / 6.5.1) ---------------------- */
   /** Hard maximum classic-option duration: 60 minutes. */
@@ -111,8 +120,30 @@ const envSchema = z.object({
   OPTION_ALLOWED_DURATIONS_SECONDS: z.string().trim().default('60,180,300,600,900,1800,3600'),
   /** Total (all-time) loss limit as % of starting equity; 0 = disabled. */
   TOTAL_LOSS_LIMIT_PERCENT: z.coerce.number().min(0).max(100).default(0),
+  /* -------------------- classic AI strategy (Phase 6.5.2) -------------------- */
+  /** RSI lookback (candles). */
+  CLASSIC_AI_RSI_PERIOD: z.coerce.number().int().min(2).max(100).default(14),
+  /** RSI above this = overbought → no new CALL. */
+  CLASSIC_AI_RSI_OVERBOUGHT: z.coerce.number().min(51).max(99).default(70),
+  /** RSI below this = oversold → no new PUT. */
+  CLASSIC_AI_RSI_OVERSOLD: z.coerce.number().min(1).max(49).default(30),
+  /** Require a NEUTRAL signal before the AI may flip direction (CALL ↔ PUT). */
+  CLASSIC_AI_REQUIRE_NEUTRAL_COOLDOWN: z.enum(['true', 'false']).default('true'),
+  /** Max consecutive AI classic trades in the same direction. */
+  CLASSIC_MAX_CONSECUTIVE_SAME_DIRECTION: z.coerce.number().int().min(1).max(20).default(3),
+  /** Cooldown before the same direction is allowed again after the max is hit. */
+  CLASSIC_COOLDOWN_AFTER_MAX_CONSECUTIVE_MS: z.coerce.number().int().min(0).max(86_400_000).default(300_000),
+  /* ---------------------- market simulator (Phase 6.5.2) --------------------- */
+  /** Per-candle pull back toward the long-term mean (0 = random walk, 1 = snap). */
+  SIMULATOR_MEAN_REVERSION_STRENGTH: z.coerce.number().min(0).max(1).default(0.05),
+  /** Long-run per-candle log-return volatility (0.002 = 0.2%). */
+  SIMULATOR_BASE_VOLATILITY: z.coerce.number().positive().max(0.1).default(0.002),
+  /** Simulated candle interval (default 5 minutes, matching 1–60 min options). */
+  SIMULATOR_CANDLE_INTERVAL_MS: z.coerce.number().int().min(60_000).max(3_600_000).default(300_000),
+  /** Long-term mean price for simulated BTC. */
+  SIMULATOR_BTC_MEAN_PRICE: z.coerce.number().positive().default(60_000),
   OPTION_SETTLEMENT_GRACE_MS: z.coerce.number().int().min(0).default(5000),
-  OPTION_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(3000),
+  OPTION_MAX_PRICE_STALE_MS: z.coerce.number().int().min(500).default(8000),
   MAX_OPTION_STAKE_USD: z.coerce.number().positive().default(100),
   MIN_OPTION_STAKE_USD: z.coerce.number().positive().default(1),
   DEFAULT_OPTION_STAKE_USD: z.coerce.number().positive().default(10),
@@ -190,6 +221,24 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(moduleDir, '../../..');
 const fromRepoRoot = (p: string): string => (path.isAbsolute(p) ? p : path.resolve(repoRoot, p));
 
+/**
+ * A price can only be "fresh" if the stale threshold leaves room for at least
+ * two polls plus network latency. Bug fixed (Phase 6.5.2): with poll = 3000 ms
+ * and stale = 3000 ms every normal poll delay marked the feed stale, which
+ * blocked trades and refunded expiring options. Raises too-tight values.
+ */
+const minFreshWindowMs = 2 * env.MARKET_POLL_INTERVAL_MS + 2_000;
+function freshWindow(name: string, configured: number): number {
+  if (configured >= minFreshWindowMs) {
+    return configured;
+  }
+  logger.warn(
+    { name, configured, effective: minFreshWindowMs, pollIntervalMs: env.MARKET_POLL_INTERVAL_MS },
+    'stale-price threshold too tight for the poll interval — raised automatically',
+  );
+  return minFreshWindowMs;
+}
+
 /** Validated, typed runtime configuration. */
 export const config = {
   MODE: env.TRADING_MODE,
@@ -227,8 +276,9 @@ export const config = {
   BINARY_ALLOWED_DURATIONS_SECONDS: parseNumberList(env.BINARY_ALLOWED_DURATIONS_SECONDS),
   BINARY_ALLOWED_PAYOUT_RATIOS: parseNumberList(env.BINARY_ALLOWED_PAYOUT_RATIOS),
   BINARY_MAX_OPEN_CONTRACTS: env.BINARY_MAX_OPEN_CONTRACTS,
-  BINARY_MAX_PRICE_STALE_MS: env.BINARY_MAX_PRICE_STALE_MS,
+  BINARY_MAX_PRICE_STALE_MS: freshWindow('BINARY_MAX_PRICE_STALE_MS', env.BINARY_MAX_PRICE_STALE_MS),
   BINARY_SETTLEMENT_SOURCE: env.BINARY_SETTLEMENT_SOURCE,
+  BINARY_SHOW_ESTIMATED_UNREALIZED_PNL: env.BINARY_SHOW_ESTIMATED_UNREALIZED_PNL === 'true',
   BINARY_SETTLEMENT_INTERVAL_MS: env.BINARY_SETTLEMENT_INTERVAL_MS,
   AI_BINARY_ENABLED: env.AI_BINARY_ENABLED === 'true',
   AI_BINARY_MODE: env.AI_BINARY_MODE,
@@ -245,7 +295,7 @@ export const config = {
   AI_BINARY_MAX_SESSION_LOSS_USD: env.AI_BINARY_MAX_SESSION_LOSS_USD,
   AI_BINARY_MAX_TRADES_PER_HOUR: env.AI_BINARY_MAX_TRADES_PER_HOUR,
   AI_BINARY_REQUIRE_SIGNAL_PERSISTENCE_TICKS: env.AI_BINARY_REQUIRE_SIGNAL_PERSISTENCE_TICKS,
-  AI_BINARY_MAX_PRICE_STALE_MS: env.AI_BINARY_MAX_PRICE_STALE_MS,
+  AI_BINARY_MAX_PRICE_STALE_MS: freshWindow('AI_BINARY_MAX_PRICE_STALE_MS', env.AI_BINARY_MAX_PRICE_STALE_MS),
   AI_BINARY_LIVE_AUTO_TRADING_ENABLED: env.AI_BINARY_LIVE_AUTO_TRADING_ENABLED === 'true',
   OPTION_MAX_DURATION_SECONDS: env.OPTION_MAX_DURATION_SECONDS,
   OPTION_DEFAULT_DURATION_SECONDS: env.OPTION_DEFAULT_DURATION_SECONDS,
@@ -254,8 +304,18 @@ export const config = {
   ),
   TOTAL_LOSS_LIMIT_PERCENT: env.TOTAL_LOSS_LIMIT_PERCENT,
   DAILY_LOSS_LIMIT_PERCENT: env.DAILY_LOSS_LIMIT_PERCENT,
+  CLASSIC_AI_RSI_PERIOD: env.CLASSIC_AI_RSI_PERIOD,
+  CLASSIC_AI_RSI_OVERBOUGHT: env.CLASSIC_AI_RSI_OVERBOUGHT,
+  CLASSIC_AI_RSI_OVERSOLD: env.CLASSIC_AI_RSI_OVERSOLD,
+  CLASSIC_AI_REQUIRE_NEUTRAL_COOLDOWN: env.CLASSIC_AI_REQUIRE_NEUTRAL_COOLDOWN === 'true',
+  CLASSIC_MAX_CONSECUTIVE_SAME_DIRECTION: env.CLASSIC_MAX_CONSECUTIVE_SAME_DIRECTION,
+  CLASSIC_COOLDOWN_AFTER_MAX_CONSECUTIVE_MS: env.CLASSIC_COOLDOWN_AFTER_MAX_CONSECUTIVE_MS,
+  SIMULATOR_MEAN_REVERSION_STRENGTH: env.SIMULATOR_MEAN_REVERSION_STRENGTH,
+  SIMULATOR_BASE_VOLATILITY: env.SIMULATOR_BASE_VOLATILITY,
+  SIMULATOR_CANDLE_INTERVAL_MS: env.SIMULATOR_CANDLE_INTERVAL_MS,
+  SIMULATOR_BTC_MEAN_PRICE: env.SIMULATOR_BTC_MEAN_PRICE,
   OPTION_SETTLEMENT_GRACE_MS: env.OPTION_SETTLEMENT_GRACE_MS,
-  OPTION_MAX_PRICE_STALE_MS: env.OPTION_MAX_PRICE_STALE_MS,
+  OPTION_MAX_PRICE_STALE_MS: freshWindow('OPTION_MAX_PRICE_STALE_MS', env.OPTION_MAX_PRICE_STALE_MS),
   MAX_OPTION_STAKE_USD: env.MAX_OPTION_STAKE_USD,
   MIN_OPTION_STAKE_USD: env.MIN_OPTION_STAKE_USD,
   DEFAULT_OPTION_STAKE_USD: env.DEFAULT_OPTION_STAKE_USD,

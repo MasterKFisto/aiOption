@@ -227,8 +227,8 @@ export class AiBinaryService {
       this.settings.minConfidence = patch.minConfidence;
     }
     if (patch.maxOpenContracts !== undefined) {
-      if (!Number.isInteger(patch.maxOpenContracts) || patch.maxOpenContracts < 1) {
-        throw new Error('maxOpenContracts must be a positive integer');
+      if (!Number.isInteger(patch.maxOpenContracts) || patch.maxOpenContracts < 0) {
+        throw new Error('maxOpenContracts must be a non-negative integer (0 = unlimited)');
       }
       this.settings.maxOpenContracts = patch.maxOpenContracts;
     }
@@ -481,7 +481,11 @@ export class AiBinaryService {
       reject('cooldown after loss');
       return;
     }
-    if (countOpenBinaryContracts('AI_BINARY') >= this.settings.maxOpenContracts) {
+    // 0 = unlimited (default): no cap on concurrently open AI contracts.
+    if (
+      this.settings.maxOpenContracts > 0 &&
+      countOpenBinaryContracts('AI_BINARY') >= this.settings.maxOpenContracts
+    ) {
       reject('maximum open AI contracts reached');
       return;
     }
@@ -490,7 +494,11 @@ export class AiBinaryService {
 
     const hourAgo = nowMs - 3_600_000;
     this.tradeTimestamps = this.tradeTimestamps.filter((t) => t >= hourAgo);
-    if (this.tradeTimestamps.length >= config.AI_BINARY_MAX_TRADES_PER_HOUR) {
+    // 0 = unlimited (default): no cap on trades per hour.
+    if (
+      config.AI_BINARY_MAX_TRADES_PER_HOUR > 0 &&
+      this.tradeTimestamps.length >= config.AI_BINARY_MAX_TRADES_PER_HOUR
+    ) {
       reject('maximum trades per hour reached');
       logRiskEvent({
         type: 'AI_BINARY_MAX_TRADES_PER_HOUR_REACHED',

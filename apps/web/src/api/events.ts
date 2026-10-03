@@ -105,10 +105,16 @@ export function useApiEvents(): void {
           void queryClient.invalidateQueries({ queryKey: ['classic-settings'] });
           break;
         case 'classic':
+          void queryClient.invalidateQueries({ queryKey: ['classic-strategy'] });
           void queryClient.invalidateQueries({ queryKey: ['classic-status'] });
           void queryClient.invalidateQueries({ queryKey: ['classic-settings'] });
           void queryClient.invalidateQueries({ queryKey: ['options-config'] });
           void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          break;
+        case 'unrealized':
+          // Phase 6.5.3: live revaluation of open positions (every 2 s).
+          void queryClient.invalidateQueries({ queryKey: ['summary'] });
+          void queryClient.invalidateQueries({ queryKey: ['positions'] });
           break;
         case 'settings':
           void queryClient.invalidateQueries({ queryKey: ['wallet-addresses'] });

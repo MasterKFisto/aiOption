@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { BinaryDirection, BinarySessionSettingsUpdate } from '@aioption/shared';
 
 import { logRiskEvent } from '../db/repositories.js';
+import { binaryLiveView, binaryUnrealizedMode } from '../valuation/unrealizedPnl.js';
 import { getBinarySessionService } from './binarySessionService.js';
 import { binaryService } from './binaryService.js';
 import type { BinaryService } from './binaryService.js';
@@ -78,7 +79,16 @@ export async function binaryRoutes(
     }
   });
 
-  app.get('/binary/open', async () => service.getOpenContracts());
+  // Phase 6.5.3: live status (WINNING / LOSING / FLAT), countdown, potential
+  // profit/loss; estimated PnL only in ESTIMATED mode (never a final result).
+  app.get('/binary/open', async () => {
+    const mode = binaryUnrealizedMode();
+    const price = service.currentPrice();
+    const nowMs = Date.now();
+    return service
+      .getOpenContracts()
+      .map((contract) => ({ ...contract, ...binaryLiveView(contract, price, mode, nowMs) }));
+  });
 
   app.get('/binary/history', async (request) => {
     const { limit } = request.query as { limit?: string };
