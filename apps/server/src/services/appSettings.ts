@@ -15,8 +15,8 @@ import { validateTronAddress } from './tronAddress.js';
  * `app_settings` table and override the environment defaults.
  *
  * Storage map (single source of truth per value):
- *   app_settings.usdc_trade_address             ← TRON_DEPOSIT_ADDRESS (env default)
- *   app_settings.withdrawal_destination_address ← falls back to usdc_trade_address
+ *   app_settings.usdt_trade_address             ← TRON_DEPOSIT_ADDRESS (env default)
+ *   app_settings.withdrawal_destination_address ← falls back to usdt_trade_address
  *   app_settings.trx_fee_wallet_address         ← TRON_FEE_WALLET_ADDRESS (env default)
  *   app_settings.classic_trading_enabled        (default true)
  *   app_settings.classic_default_stake_usd      ← DEFAULT_OPTION_STAKE_USD
@@ -26,7 +26,7 @@ import { validateTronAddress } from './tronAddress.js';
  *   account.loss_limit_percent                  (daily loss limit, shared with binary)
  */
 export const SETTING_KEYS = {
-  usdcTradeAddress: 'usdc_trade_address',
+  usdtTradeAddress: 'usdt_trade_address',
   withdrawalDestinationAddress: 'withdrawal_destination_address',
   trxFeeWalletAddress: 'trx_fee_wallet_address',
   classicTradingEnabled: 'classic_trading_enabled',
@@ -35,7 +35,7 @@ export const SETTING_KEYS = {
 } as const;
 
 /** Simulated placeholder addresses (SIMULATED Tron mode only). */
-export const SIMULATED_DEPOSIT_ADDRESS = 'TSimulatedAiOptionDepositAddressUSDC1';
+export const SIMULATED_DEPOSIT_ADDRESS = 'TSimulatedAiOptionDepositAddressUSDT1';
 export const SIMULATED_FEE_WALLET_ADDRESS = 'TSimulatedFeeWalletAddressTRX0000000001';
 
 /**
@@ -70,9 +70,9 @@ export interface ResolvedAddress {
   updatedAt: string | null;
 }
 
-/** USDC trade/deposit address: database → environment → simulated → not set. */
-export function resolveUsdcTradeAddress(): ResolvedAddress {
-  const stored = readSetting(SETTING_KEYS.usdcTradeAddress);
+/** USDT trade/deposit address: database → environment → simulated → not set. */
+export function resolveUsdtTradeAddress(): ResolvedAddress {
+  const stored = readSetting(SETTING_KEYS.usdtTradeAddress);
   if (stored) {
     return { address: stored.value, source: 'DATABASE', updatedAt: stored.updatedAt };
   }
@@ -107,7 +107,7 @@ export function resolveTrxFeeWalletAddress(): ResolvedAddress {
     return { address: SIMULATED_FEE_WALLET_ADDRESS, source: 'SIMULATED', updatedAt: null };
   }
   // Live mode without a dedicated fee wallet: the main address receives TRX.
-  const trade = resolveUsdcTradeAddress();
+  const trade = resolveUsdtTradeAddress();
   return trade.address ? { ...trade, updatedAt: null } : { address: '', source: 'NOT_SET', updatedAt: null };
 }
 
@@ -128,7 +128,7 @@ function describeValidation(resolved: ResolvedAddress): AddressValidation {
 
 /** Public view of all user-editable addresses. Never includes secrets. */
 export function getWalletAddresses(): WalletAddresses {
-  const trade = resolveUsdcTradeAddress();
+  const trade = resolveUsdtTradeAddress();
   const withdrawal = resolveWithdrawalDestinationAddress();
   const fee = resolveTrxFeeWalletAddress();
   const updatedAt =
@@ -137,16 +137,16 @@ export function getWalletAddresses(): WalletAddresses {
       .sort()
       .at(-1) ?? null;
   return {
-    usdcTradeAddress: trade.address,
+    usdtTradeAddress: trade.address,
     withdrawalDestinationAddress: withdrawal.address,
     effectiveWithdrawalDestinationAddress: withdrawal.address || trade.address,
     trxFeeWalletAddress: fee.address,
-    usdcTradeAddressSource: trade.source,
+    usdtTradeAddressSource: trade.source,
     withdrawalDestinationAddressSource: withdrawal.source,
     trxFeeWalletAddressSource: fee.source,
     updatedAt,
     validationStatus: {
-      usdcTradeAddress: describeValidation(trade),
+      usdtTradeAddress: describeValidation(trade),
       withdrawalDestinationAddress: withdrawal.address ? validateTronAddress(withdrawal.address) : null,
       trxFeeWalletAddress: describeValidation(fee),
     },
@@ -170,7 +170,7 @@ export class AddressValidationError extends Error {
  */
 export function updateWalletAddresses(update: WalletAddressesUpdate): WalletAddresses {
   const fields: Array<[keyof WalletAddressesUpdate, string]> = [
-    ['usdcTradeAddress', SETTING_KEYS.usdcTradeAddress],
+    ['usdtTradeAddress', SETTING_KEYS.usdtTradeAddress],
     ['withdrawalDestinationAddress', SETTING_KEYS.withdrawalDestinationAddress],
     ['trxFeeWalletAddress', SETTING_KEYS.trxFeeWalletAddress],
   ];

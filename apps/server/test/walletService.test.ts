@@ -36,7 +36,7 @@ describe('WalletService', () => {
     const { transaction, account } = wallet.deposit(1000, 'seed');
     expect(transaction.type).toBe('DEPOSIT');
     expect(transaction.amount).toBe(1000);
-    expect(transaction.currency).toBe('USDC');
+    expect(transaction.currency).toBe('USDT');
     expect(account.cashBalance).toBe(1000);
     expect(account.equity).toBe(1000);
     expect(repo.listTransactions().length).toBe(before + 1);

@@ -41,7 +41,7 @@ interface AccountRow {
   max_option_stake_usd: number;
   option_default_duration_seconds: number;
   binary_session_gain_limit_enabled: number;
-  binary_max_session_gain_usdc: number;
+  binary_max_session_gain_usdt: number;
   binary_max_session_gain_percent: number;
   trading_enabled: number;
   starting_equity: number;
@@ -126,7 +126,7 @@ const toAccount = (r: AccountRow): Account => ({
   maxOptionStakeUsd: r.max_option_stake_usd,
   optionDefaultDurationSeconds: r.option_default_duration_seconds,
   binarySessionGainLimitEnabled: r.binary_session_gain_limit_enabled === 1,
-  binaryMaxSessionGainUsdc: r.binary_max_session_gain_usdc,
+  binaryMaxSessionGainUsdt: r.binary_max_session_gain_usdt,
   binaryMaxSessionGainPercent: r.binary_max_session_gain_percent,
   tradingEnabled: r.trading_enabled === 1,
   startingEquity: r.starting_equity,
@@ -227,7 +227,7 @@ type AccountBind = {
   maxOptionStakeUsd: number | null;
   optionDefaultDurationSeconds: number | null;
   binarySessionGainLimitEnabled: number | null;
-  binaryMaxSessionGainUsdc: number | null;
+  binaryMaxSessionGainUsdt: number | null;
   binaryMaxSessionGainPercent: number | null;
   tradingEnabled: number | null;
   startingEquity: number | null;
@@ -259,7 +259,7 @@ export function updateAccount(patch: AccountUpdate): Account {
          max_option_stake_usd = COALESCE(@maxOptionStakeUsd, max_option_stake_usd),
          option_default_duration_seconds = COALESCE(@optionDefaultDurationSeconds, option_default_duration_seconds),
          binary_session_gain_limit_enabled = COALESCE(@binarySessionGainLimitEnabled, binary_session_gain_limit_enabled),
-         binary_max_session_gain_usdc = COALESCE(@binaryMaxSessionGainUsdc, binary_max_session_gain_usdc),
+         binary_max_session_gain_usdt = COALESCE(@binaryMaxSessionGainUsdt, binary_max_session_gain_usdt),
          binary_max_session_gain_percent = COALESCE(@binaryMaxSessionGainPercent, binary_max_session_gain_percent),
          trading_enabled = COALESCE(@tradingEnabled, trading_enabled),
          starting_equity = COALESCE(@startingEquity, starting_equity),
@@ -283,7 +283,7 @@ export function updateAccount(patch: AccountUpdate): Account {
           : patch.binarySessionGainLimitEnabled
             ? 1
             : 0,
-      binaryMaxSessionGainUsdc: patch.binaryMaxSessionGainUsdc ?? null,
+      binaryMaxSessionGainUsdt: patch.binaryMaxSessionGainUsdt ?? null,
       binaryMaxSessionGainPercent: patch.binaryMaxSessionGainPercent ?? null,
       tradingEnabled: patch.tradingEnabled === undefined ? null : patch.tradingEnabled ? 1 : 0,
       startingEquity: patch.startingEquity ?? null,
@@ -763,7 +763,7 @@ export function createDeposit(input: NewDepositInput): Deposit | null {
     )
     .run({
       network: input.network ?? 'TRON',
-      asset: input.asset ?? 'USDC',
+      asset: input.asset ?? 'USDT',
       tokenStandard: input.tokenStandard ?? 'TRC20',
       amount: input.amount,
       fromAddress: input.fromAddress ?? null,
@@ -877,7 +877,7 @@ export function createWithdrawal(input: NewWithdrawalInput): Withdrawal {
           fee_estimate_trx, fee_estimate_usd, fee_payer, fee_status, fee_notes,
           fee_reserve_sufficient, fee_reserve_error)
        VALUES
-         ('TRON', 'USDC', 'TRC20', @amount, @destinationAddress, @status, @txid, @error, @createdAt, @updatedAt, @notes,
+         ('TRON', 'USDT', 'TRC20', @amount, @destinationAddress, @status, @txid, @error, @createdAt, @updatedAt, @notes,
           @feeEstimateTrx, @feeEstimateUsd, @feePayer, @feeStatus, @feeNotes,
           @feeReserveSufficient, @feeReserveError)`,
     )

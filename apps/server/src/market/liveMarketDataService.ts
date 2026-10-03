@@ -18,7 +18,7 @@ export interface MarketDataSource {
 
 const COINBASE_BASE = 'https://api.exchange.coinbase.com';
 
-/** Safe symbol pattern: uppercase base/quote pairs, e.g. BTC/USDC, BTC-USDC. */
+/** Safe symbol pattern: uppercase base/quote pairs, e.g. BTC/USDT, BTC-USDT. */
 const SAFE_SYMBOL = /^[A-Z0-9]{1,16}(?:[/-][A-Z0-9]{1,16})?$/;
 
 const toCoinbaseSymbol = (symbol: string): string => {

@@ -17,7 +17,7 @@ describe('PaperExecutionAdapter', () => {
     expect(result.filledQuantity).toBe(2);
     expect(result.averagePrice).toBe(200);
     expect(result.fee).toBeCloseTo(0.4, 6);
-    expect(result.feeCurrency).toBe('USDC');
+    expect(result.feeCurrency).toBe('USDT');
     expect(result.orderId).toMatch(/^paper-/);
   });
 

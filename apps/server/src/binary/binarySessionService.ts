@@ -85,12 +85,12 @@ export class BinarySessionService {
 
   private effectiveLimitUsd(): number {
     const account = getAccount();
-    const usdcLimit = account.binaryMaxSessionGainUsdc;
+    const usdtLimit = account.binaryMaxSessionGainUsdt;
     const percentLimitUsd =
       account.binaryMaxSessionGainPercent > 0 && account.startingEquity > 0
         ? account.startingEquity * (account.binaryMaxSessionGainPercent / 100)
         : Number.POSITIVE_INFINITY;
-    return Math.min(usdcLimit, percentLimitUsd);
+    return Math.min(usdtLimit, percentLimitUsd);
   }
 
   isGainLimitEnabled(): boolean {
@@ -123,7 +123,7 @@ export class BinarySessionService {
       losses: session?.losses ?? 0,
       refunds: session?.refunds ?? 0,
       gainLimitEnabled: enabled,
-      maxSessionGainUsdc: enabled ? account.binaryMaxSessionGainUsdc : 0,
+      maxSessionGainUsdt: enabled ? account.binaryMaxSessionGainUsdt : 0,
       maxSessionGainPercent: enabled ? account.binaryMaxSessionGainPercent : 0,
       remainingSessionGain: enabled ? Math.max(0, limitUsd - combined) : 0,
       gainLimitReached: this.isGainLimitReached(),
@@ -133,9 +133,9 @@ export class BinarySessionService {
 
 
   updateSettings(patch: BinarySessionSettingsUpdate): BinarySessionStats {
-    if (patch.maxSessionGainUsdc !== undefined) {
-      if (!Number.isFinite(patch.maxSessionGainUsdc) || patch.maxSessionGainUsdc <= 0) {
-        throw new Error('maxSessionGainUsdc must be positive');
+    if (patch.maxSessionGainUsdt !== undefined) {
+      if (!Number.isFinite(patch.maxSessionGainUsdt) || patch.maxSessionGainUsdt <= 0) {
+        throw new Error('maxSessionGainUsdt must be positive');
       }
     }
     if (patch.maxSessionGainPercent !== undefined) {
@@ -151,8 +151,8 @@ export class BinarySessionService {
       ...(patch.gainLimitEnabled !== undefined
         ? { binarySessionGainLimitEnabled: patch.gainLimitEnabled }
         : {}),
-      ...(patch.maxSessionGainUsdc !== undefined
-        ? { binaryMaxSessionGainUsdc: patch.maxSessionGainUsdc }
+      ...(patch.maxSessionGainUsdt !== undefined
+        ? { binaryMaxSessionGainUsdt: patch.maxSessionGainUsdt }
         : {}),
       ...(patch.maxSessionGainPercent !== undefined
         ? { binaryMaxSessionGainPercent: patch.maxSessionGainPercent }

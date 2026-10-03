@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS account (
   equity               REAL    NOT NULL DEFAULT 0,
   cash_balance         REAL    NOT NULL DEFAULT 0,
   locked_balance       REAL    NOT NULL DEFAULT 0,
-  base_currency        TEXT    NOT NULL DEFAULT 'USDC',
+  base_currency        TEXT    NOT NULL DEFAULT 'USDT',
   fixed_trade_size_usd REAL    NOT NULL DEFAULT 10,
   max_open_positions   INTEGER NOT NULL DEFAULT 0,
   loss_limit_percent   REAL    NOT NULL DEFAULT 40,
@@ -90,7 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_risk_events_triggered_at ON risk_events (triggere
 CREATE TABLE IF NOT EXISTS deposits (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
   network         TEXT    NOT NULL DEFAULT 'TRON',
-  asset           TEXT    NOT NULL DEFAULT 'USDC',
+  asset           TEXT    NOT NULL DEFAULT 'USDT',
   token_standard  TEXT    NOT NULL DEFAULT 'TRC20',
   amount          REAL    NOT NULL,
   from_address    TEXT,
@@ -107,7 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_deposits_created_at ON deposits (created_at);
 CREATE TABLE IF NOT EXISTS withdrawals (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
   network             TEXT    NOT NULL DEFAULT 'TRON',
-  asset               TEXT    NOT NULL DEFAULT 'USDC',
+  asset               TEXT    NOT NULL DEFAULT 'USDT',
   token_standard      TEXT    NOT NULL DEFAULT 'TRC20',
   amount              REAL    NOT NULL,
   destination_address TEXT    NOT NULL,
@@ -123,7 +123,7 @@ CREATE INDEX IF NOT EXISTS idx_withdrawals_created_at ON withdrawals (created_at
 
 CREATE TABLE IF NOT EXISTS binary_contracts (
   id                      INTEGER PRIMARY KEY AUTOINCREMENT,
-  asset                   TEXT    NOT NULL DEFAULT 'BTC/USDC',
+  asset                   TEXT    NOT NULL DEFAULT 'BTC/USDT',
   direction               TEXT    NOT NULL CHECK (direction IN ('UP', 'DOWN')),
   stake_usd               REAL    NOT NULL,
   payout_ratio            REAL    NOT NULL,
@@ -158,7 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_binary_events_created_at ON binary_events (create
 CREATE TABLE IF NOT EXISTS ai_binary_decisions (
   id                  INTEGER PRIMARY KEY AUTOINCREMENT,
   created_at          TEXT    NOT NULL,
-  asset               TEXT    NOT NULL DEFAULT 'BTC/USDC',
+  asset               TEXT    NOT NULL DEFAULT 'BTC/USDT',
   signal              TEXT    NOT NULL CHECK (signal IN ('UP', 'DOWN', 'NEUTRAL')),
   confidence          REAL    NOT NULL,
   reason              TEXT,
@@ -346,8 +346,18 @@ export function runMigrations(db: Database.Database): void {
   if (!hasColumn(db, 'account', 'binary_session_gain_limit_enabled')) {
     db.exec('ALTER TABLE account ADD COLUMN binary_session_gain_limit_enabled INTEGER NOT NULL DEFAULT 1');
   }
-  if (!hasColumn(db, 'account', 'binary_max_session_gain_usdc')) {
-    db.exec('ALTER TABLE account ADD COLUMN binary_max_session_gain_usdc REAL NOT NULL DEFAULT 50');
+  // Phase 7.1: the session-gain column follows the base currency rename
+  // (USDC → USDT). RENAME COLUMN is idempotent via the hasColumn guards.
+  if (
+    hasColumn(db, 'account', 'binary_max_session_gain_usdc') &&
+    !hasColumn(db, 'account', 'binary_max_session_gain_usdt')
+  ) {
+    db.exec(
+      'ALTER TABLE account RENAME COLUMN binary_max_session_gain_usdc TO binary_max_session_gain_usdt',
+    );
+  }
+  if (!hasColumn(db, 'account', 'binary_max_session_gain_usdt')) {
+    db.exec('ALTER TABLE account ADD COLUMN binary_max_session_gain_usdt REAL NOT NULL DEFAULT 50');
   }
   if (!hasColumn(db, 'account', 'binary_max_session_gain_percent')) {
     db.exec('ALTER TABLE account ADD COLUMN binary_max_session_gain_percent REAL NOT NULL DEFAULT 0');
@@ -422,6 +432,10 @@ export function runMigrations(db: Database.Database): void {
     "INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES ('binary_show_estimated_unrealized_pnl', ?, ?)",
   ).run(process.env['BINARY_SHOW_ESTIMATED_UNREALIZED_PNL'] === 'true' ? 'true' : 'false', new Date().toISOString());
 
+  // Phase 7.1: base currency USDC → USDT (USDC no longer exists on Tron).
+  // Idempotent value conversion — amounts, timestamps and statuses untouched.
+  migrateBaseCurrencyToUsdt(db);
+
   // Locked balance must equal the sum of open stakes (classic + binary).
   recalculateLockedBalance(db);
 }
@@ -429,6 +443,48 @@ export function runMigrations(db: Database.Database): void {
 const MIGRATION_6_5_2_UNLIMITED_MARKER = 'migration_6_5_2_unlimited_trades';
 
 const MIGRATION_6_5_1_MARKER = 'migration_6_5_1_classic_defaults';
+
+const MIGRATION_7_1_MARKER = 'migration_7_1_base_currency_usdt';
+
+/**
+ * Phase 7.1: USDC is no longer supported on the Tron network; the base
+ * currency is USDT (TRC20, still 6 decimals). Converts stored asset/currency
+ * values and the trade-address settings key ONLY — never amounts, timestamps
+ * or statuses. Idempotent: USDC rows simply stop matching after the first run.
+ * The TRX fee reserve (tron_fee_deposits) is intentionally untouched.
+ */
+function migrateBaseCurrencyToUsdt(db: Database.Database): void {
+  db.transaction(() => {
+    db.prepare("UPDATE account SET base_currency = 'USDT' WHERE base_currency = 'USDC'").run();
+    db.prepare("UPDATE deposits SET asset = 'USDT' WHERE asset = 'USDC'").run();
+    db.prepare("UPDATE withdrawals SET asset = 'USDT' WHERE asset = 'USDC'").run();
+    db.prepare("UPDATE transactions SET currency = 'USDT' WHERE currency = 'USDC'").run();
+    // Traded pair follows the base currency: BTC/USDC → BTC/USDT.
+    db.prepare(
+      "UPDATE binary_contracts SET asset = REPLACE(asset, 'USDC', 'USDT') WHERE asset LIKE '%USDC%'",
+    ).run();
+    db.prepare(
+      "UPDATE ai_binary_decisions SET asset = REPLACE(asset, 'USDC', 'USDT') WHERE asset LIKE '%USDC%'",
+    ).run();
+    db.prepare(
+      "UPDATE positions SET symbol = REPLACE(symbol, 'USDC', 'USDT') WHERE symbol LIKE '%USDC%'",
+    ).run();
+    // Settings key renames (values preserved).
+    db.prepare(
+      `INSERT OR REPLACE INTO app_settings (key, value, updated_at)
+       SELECT 'usdt_trade_address', value, updated_at FROM app_settings WHERE key = 'usdc_trade_address'`,
+    ).run();
+    db.prepare("DELETE FROM app_settings WHERE key = 'usdc_trade_address'").run();
+    db.prepare(
+      `INSERT OR REPLACE INTO app_settings (key, value, updated_at)
+       SELECT 'uat_starting_balance_usdt', value, updated_at FROM app_settings WHERE key = 'uat_starting_balance_usdc'`,
+    ).run();
+    db.prepare("DELETE FROM app_settings WHERE key = 'uat_starting_balance_usdc'").run();
+    db.prepare(
+      'INSERT OR IGNORE INTO app_settings (key, value, updated_at) VALUES (?, ?, ?)',
+    ).run(MIGRATION_7_1_MARKER, 'done', new Date().toISOString());
+  })();
+}
 
 /** ISO-8601 UTC timestamp expression for SQLite (matches toISOString()). */
 const ISO = "'%Y-%m-%dT%H:%M:%fZ'";

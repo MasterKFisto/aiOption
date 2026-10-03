@@ -36,7 +36,7 @@ export const BINARY_WARNINGS = [
 /**
  * Short-duration binary options, settled INTERNALLY against the backend
  * market price feed. No on-chain settlement, no real exchange orders —
- * deposits/withdrawals stay on Tron USDC (TRC20) as defined in Phase 6.1.
+ * deposits/withdrawals stay on Tron USDT (TRC20) as defined in Phase 6.1.
  */
 export class BinaryService {
   constructor(private readonly feed: BinaryPriceFeed) {}
@@ -59,7 +59,7 @@ export class BinaryService {
   /** Quote preview for the ticket. Throws on invalid input. */
   getQuote(stakeUsd: number, durationSeconds: number, payoutRatio: number): BinaryQuote {
     this.validateInput({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       direction: 'UP',
       stakeUsd,
       durationSeconds,
@@ -222,17 +222,17 @@ export class BinaryService {
   /* -------------------------------- internal -------------------------------- */
 
   private validateInput(input: OpenBinaryInput): void {
-    if (input.asset !== 'BTC/USDC') {
-      throw new Error('only BTC/USDC binary contracts are supported');
+    if (input.asset !== 'BTC/USDT') {
+      throw new Error('only BTC/USDT binary contracts are supported');
     }
     if (input.direction !== 'UP' && input.direction !== 'DOWN') {
       throw new Error('direction must be UP or DOWN');
     }
     if (!Number.isFinite(input.stakeUsd) || input.stakeUsd < config.BINARY_MIN_STAKE_USD) {
-      throw new Error(`stake must be at least ${config.BINARY_MIN_STAKE_USD} USDC`);
+      throw new Error(`stake must be at least ${config.BINARY_MIN_STAKE_USD} USDT`);
     }
     if (input.stakeUsd > config.BINARY_MAX_STAKE_USD) {
-      throw new Error(`stake must be at most ${config.BINARY_MAX_STAKE_USD} USDC`);
+      throw new Error(`stake must be at most ${config.BINARY_MAX_STAKE_USD} USDT`);
     }
     if (!config.BINARY_ALLOWED_DURATIONS_SECONDS.includes(input.durationSeconds)) {
       throw new Error(

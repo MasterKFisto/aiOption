@@ -95,7 +95,7 @@ export async function buildApp() {
   // Live market data (public source) for the dashboard.
   await app.register(marketRoutes, { prefix: '/api/market' });
 
-  // Tron USDC (TRC20) deposits and withdrawals.
+  // Tron USDT (TRC20) deposits and withdrawals.
   await app.register(depositRoutes, { prefix: '/api' });
   await app.register(withdrawalRoutes, { prefix: '/api' });
 

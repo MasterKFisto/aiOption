@@ -23,7 +23,8 @@ const envSchema = z.object({
   /** SQLite trading database file path (absolute, or relative to the repository root). */
   DB_PATH: z.string().trim().min(1).default('data/trading.db'),
   /** Base currency used for balances and P/L accounting. */
-  BASE_CURRENCY: z.string().trim().min(1).max(16).default('USDC'),
+  /** Base (accounting) currency. Phase 7.1: USDT on Tron — USDC is rejected below. */
+  BASE_CURRENCY: z.string().trim().min(1).max(16).default('USDT'),
   /** Fixed trade size in USD for each option position. */
   FIXED_TRADE_SIZE_USD: z.coerce.number().positive().default(10),
   /** Maximum concurrently open classic positions (0 = unlimited, default). */
@@ -42,10 +43,12 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().trim().default('http://localhost:5173'),
   /** Comma-separated hostnames the API may be addressed as (DNS-rebinding guard). */
   ALLOWED_HOSTS: z.string().trim().default('localhost,127.0.0.1,::1'),
-  /** Primary market symbol for the live public price feed. */
-  MARKET_SYMBOL: z.string().trim().min(1).default('BTC/USDC'),
+  /** Primary market symbol for the live public price feed (base: USDT). */
+  MARKET_SYMBOL: z.string().trim().min(1).default('BTC/USDT'),
   /** Fallback symbol if the primary pair is unavailable on the data source. */
-  FALLBACK_MARKET_SYMBOL: z.string().trim().min(1).default('BTC/USDT'),
+  // BTC/USD is the data source's most liquid pair — an availability-only
+  // fallback. All accounting stays in USDT regardless of the price feed.
+  FALLBACK_MARKET_SYMBOL: z.string().trim().min(1).default('BTC/USD'),
   /** Live market poll interval in ms (2-5s recommended). */
   MARKET_POLL_INTERVAL_MS: z.coerce.number().int().min(1000).max(60000).default(3000),
   /** Tron network mode. */
@@ -54,11 +57,11 @@ const envSchema = z.object({
   TRON_DEPOSIT_ADDRESS: z.string().trim().default(''),
   /** Hot wallet address (only relevant for live withdrawals). */
   TRON_HOT_WALLET_ADDRESS: z.string().trim().default(''),
-  /** USDC TRC20 contract address for the selected Tron network. */
-  TRON_USDC_CONTRACT_ADDRESS: z.string().trim().default(''),
+  /** USDT TRC20 contract address for the selected Tron network. */
+  TRON_USDT_CONTRACT_ADDRESS: z.string().trim().default(''),
   /** TronGrid API key (optional but recommended for live mode). */
   TRON_GRID_API_KEY: z.string().trim().default(''),
-  /** Confirmations required before crediting an incoming USDC transfer. */
+  /** Confirmations required before crediting an incoming USDT transfer. */
   TRON_REQUIRED_CONFIRMATIONS: z.coerce.number().int().min(1).default(12),
   /** Allow real Tron withdrawals (broadcast). Must be explicitly set to true. */
   ENABLE_LIVE_TRON_WITHDRAWALS: z.enum(['true', 'false']).default('false'),
@@ -120,7 +123,7 @@ const envSchema = z.object({
   /* --------------------------- AI binary trading ---------------------------- */
   AI_BINARY_ENABLED: z.enum(['true', 'false']).default('false'),
   AI_BINARY_MODE: z.enum(['DISABLED', 'SIGNAL_ONLY', 'AUTO_EXECUTE']).default('SIGNAL_ONLY'),
-  AI_BINARY_ASSET: z.string().trim().default('BTC/USDC'),
+  AI_BINARY_ASSET: z.string().trim().default('BTC/USDT'),
   AI_BINARY_STAKE_USD: z.coerce.number().positive().default(10),
   AI_BINARY_DURATION_SECONDS: z.coerce.number().int().positive().default(10),
   AI_BINARY_PAYOUT_RATIO: z.coerce.number().positive().default(0.8),
@@ -174,7 +177,7 @@ const envSchema = z.object({
   DEFAULT_OPTION_STAKE_USD: z.coerce.number().positive().default(10),
   /* -------------------------- Tron withdrawal fees --------------------------- */
   TRON_WITHDRAWAL_FEE_POLICY: z
-    .enum(['HOT_WALLET_PAYS', 'DEDUCT_USDC_FROM_WITHDRAWAL', 'BLOCK_IF_INSUFFICIENT'])
+    .enum(['HOT_WALLET_PAYS', 'DEDUCT_USDT_FROM_WITHDRAWAL', 'BLOCK_IF_INSUFFICIENT'])
     .default('HOT_WALLET_PAYS'),
   TRON_WITHDRAWAL_FEE_ESTIMATE_TRX: z.coerce.number().min(0).default(30),
   TRON_USD_TRX_PRICE: z.coerce.number().positive().default(0.12),
@@ -187,7 +190,7 @@ const envSchema = z.object({
   AI_BINARY_STOP_ON_PROFIT_TARGET: z.enum(['true', 'false']).default('true'),
   /* ---------------------- binary session gain limit (6.5) -------------------- */
   BINARY_SESSION_GAIN_LIMIT_ENABLED: z.enum(['true', 'false']).default('true'),
-  BINARY_MAX_SESSION_GAIN_USDC: z.coerce.number().positive().default(50),
+  BINARY_MAX_SESSION_GAIN_USDT: z.coerce.number().positive().default(50),
   BINARY_MAX_SESSION_GAIN_PERCENT: z.coerce.number().min(0).max(100).default(0),
   BINARY_SESSION_RESET_ON_START: z.enum(['true', 'false']).default('true'),
   /* ----------------------- TRX fee wallet deposits (6.5) --------------------- */
@@ -233,6 +236,23 @@ const envSchema = z.object({
   }
 
   /* ----------------------- Phase 7: network safety gates ---------------------- */
+  // Phase 7.1: USDC is no longer supported on Tron. Abort loudly on USDC
+  // (deprecation) or any other unsupported base currency — never silently map.
+  if (env.BASE_CURRENCY.toUpperCase() === 'USDC') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['BASE_CURRENCY'],
+      message:
+        'USDC is no longer supported on the Tron network — set BASE_CURRENCY=USDT ' +
+        '(existing USDC rows are migrated automatically on startup)',
+    });
+  } else if (env.BASE_CURRENCY !== 'USDT') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['BASE_CURRENCY'],
+      message: `unsupported base currency "${env.BASE_CURRENCY}" — only USDT (Tron TRC20) is supported`,
+    });
+  }
   const tradingModeExplicit = process.env['TRADING_MODE'] !== undefined;
   const alias = parseModeAlias(env.MODE);
   if (tradingModeExplicit && alias !== null && alias !== env.TRADING_MODE) {
@@ -395,7 +415,7 @@ export const config = {
     env.TRON_MODE === 'SIMULATED',
   TRON_DEPOSIT_ADDRESS: env.TRON_DEPOSIT_ADDRESS,
   TRON_HOT_WALLET_ADDRESS: env.TRON_HOT_WALLET_ADDRESS,
-  TRON_USDC_CONTRACT_ADDRESS: env.TRON_USDC_CONTRACT_ADDRESS,
+  TRON_USDT_CONTRACT_ADDRESS: env.TRON_USDT_CONTRACT_ADDRESS,
   TRON_GRID_API_KEY: env.TRON_GRID_API_KEY,
   TRON_REQUIRED_CONFIRMATIONS: env.TRON_REQUIRED_CONFIRMATIONS,
   /**
@@ -472,7 +492,7 @@ export const config = {
   AI_BINARY_DAILY_PROFIT_LIMIT_PERCENT: env.AI_BINARY_DAILY_PROFIT_LIMIT_PERCENT,
   AI_BINARY_STOP_ON_PROFIT_TARGET: env.AI_BINARY_STOP_ON_PROFIT_TARGET === 'true',
   BINARY_SESSION_GAIN_LIMIT_ENABLED: env.BINARY_SESSION_GAIN_LIMIT_ENABLED === 'true',
-  BINARY_MAX_SESSION_GAIN_USDC: env.BINARY_MAX_SESSION_GAIN_USDC,
+  BINARY_MAX_SESSION_GAIN_USDT: env.BINARY_MAX_SESSION_GAIN_USDT,
   BINARY_MAX_SESSION_GAIN_PERCENT: env.BINARY_MAX_SESSION_GAIN_PERCENT,
   BINARY_SESSION_RESET_ON_START: env.BINARY_SESSION_RESET_ON_START === 'true',
   TRON_FEE_WALLET_ADDRESS: env.TRON_FEE_WALLET_ADDRESS,

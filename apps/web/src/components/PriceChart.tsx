@@ -77,7 +77,7 @@ export function PriceChart({ interval, onIntervalChange }: { interval: Interval;
 
   return (
     <Card
-      title="BTC/USDC chart"
+      title="BTC/USDT chart"
       extra={
         <Segmented
           options={['1m', '5m', '1h']}

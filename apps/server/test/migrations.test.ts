@@ -101,7 +101,7 @@ describe('migrations on a legacy schema', () => {
 
   it('preserves legacy data and applies sane defaults for new columns', () => {
     const account = repo.getAccount();
-    // Equity is untouched; the 10 USDC legacy open stake is moved from cash
+    // Equity is untouched; the 10 USDT legacy open stake is moved from cash
     // into locked by the Phase 6.5.1 locked-balance repair.
     expect(account.equity).toBe(500);
     expect(account.cashBalance).toBe(490);
@@ -112,7 +112,7 @@ describe('migrations on a legacy schema', () => {
     expect(account.maxOptionStakeUsd).toBe(100);
     expect(account.optionDefaultDurationSeconds).toBe(600);
     expect(account.binarySessionGainLimitEnabled).toBe(true);
-    expect(account.binaryMaxSessionGainUsdc).toBe(50);
+    expect(account.binaryMaxSessionGainUsdt).toBe(50);
     expect(account.binaryMaxSessionGainPercent).toBe(0);
     // Daily loss limit default migrated from the old 5% to 40%.
     expect(account.lossLimitPercent).toBe(40);

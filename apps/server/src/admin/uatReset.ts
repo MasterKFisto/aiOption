@@ -53,11 +53,12 @@ export const UAT_MUST_BE_EMPTY = [
  * one-time migrations never re-run. Everything else returns to defaults.
  */
 export const UAT_PRESERVED_SETTINGS = [
-  'usdc_trade_address',
+  'usdt_trade_address',
   'withdrawal_destination_address',
   'trx_fee_wallet_address',
   'migration_6_5_1_classic_defaults',
   'migration_6_5_2_unlimited_trades',
+  'migration_7_1_base_currency_usdt',
 ] as const;
 
 /** Safe defaults written after the reset (trading OFF, conservative display). */
@@ -73,8 +74,8 @@ export interface UatResetOptions {
   confirm: string | undefined;
   /** Must be "true" to reset in LIVE mode. */
   allowLive: string | undefined;
-  /** Starting USDC balance for the clean account (0 … 1,000,000). */
-  startingBalanceUsdc: number;
+  /** Starting USDT balance for the clean account (0 … 1,000,000). */
+  startingBalanceUsdt: number;
   /** Account defaults (from config) for the re-seeded row. */
   defaults: {
     baseCurrency: string;
@@ -88,7 +89,7 @@ export interface UatResetOptions {
 export interface UatResetResult {
   ok: true;
   mode: string;
-  startingBalanceUsdc: number;
+  startingBalanceUsdt: number;
   clearedRows: Record<string, number>;
   resetAt: string;
 }
@@ -117,10 +118,10 @@ export function assertUatResetAllowed(options: UatResetOptions): void {
       'LIVE_MODE_BLOCKED',
     );
   }
-  const b = options.startingBalanceUsdc;
+  const b = options.startingBalanceUsdt;
   if (!Number.isFinite(b) || b < 0 || b > 1_000_000) {
     throw new UatResetError(
-      'UAT_RESET_STARTING_BALANCE_USDC must be a number between 0 and 1000000',
+      'UAT_RESET_STARTING_BALANCE_USDT must be a number between 0 and 1000000',
       'INVALID_BALANCE',
     );
   }
@@ -152,7 +153,7 @@ export function ident(table: string): string {
 export function runUatReset(db: Database.Database, options: UatResetOptions): UatResetResult {
   assertUatResetAllowed(options);
   const resetAt = new Date().toISOString();
-  const balance = Math.round(options.startingBalanceUsdc * 100) / 100;
+  const balance = Math.round(options.startingBalanceUsdt * 100) / 100;
   const clearedRows: Record<string, number> = {};
 
   db.transaction(() => {
@@ -179,7 +180,7 @@ export function runUatReset(db: Database.Database, options: UatResetOptions): Ua
       upsert.run(key, value, resetAt);
     }
     upsert.run('uat_last_reset_at', resetAt, resetAt);
-    upsert.run('uat_starting_balance_usdc', String(balance), resetAt);
+    upsert.run('uat_starting_balance_usdt', String(balance), resetAt);
 
     // Re-seed the single account row: trading OFF, nothing locked.
     db.prepare('DELETE FROM account').run();
@@ -203,7 +204,7 @@ export function runUatReset(db: Database.Database, options: UatResetOptions): Ua
     ).run(options.defaults.maxOptionStakeUsd, options.defaults.optionDefaultDurationSeconds);
   })();
 
-  return { ok: true, mode: options.mode, startingBalanceUsdc: balance, clearedRows, resetAt };
+  return { ok: true, mode: options.mode, startingBalanceUsdt: balance, clearedRows, resetAt };
 }
 
 export interface UatVerification {

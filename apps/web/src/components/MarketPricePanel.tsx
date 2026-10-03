@@ -12,7 +12,7 @@ const STATUS_COLORS: Record<MarketConnectionStatus, string> = {
   error: 'red',
 };
 
-/** Live BTC/USDC price panel with connection status and source labels. */
+/** Live BTC/USDT price panel with connection status and source labels. */
 export function MarketPricePanel() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['ticker'],

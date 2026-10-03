@@ -145,12 +145,12 @@ export class TradingLoop {
 
       // 3. Signal -> risk -> execute per symbol.
       for (const symbol of result.symbols) {
-        // Phase 6.5.1: classic options settle against the BTC/USDC live feed
+        // Phase 6.5.1: classic options settle against the BTC/USDT live feed
         // only — never evaluate/open other underlyings (e.g. ETH) that would
         // be settled against the wrong price (and would pollute the
         // direction streak of the AI).
         if (!isBtc(symbol)) {
-          result.skipped.push({ symbol, reason: 'classic options trade BTC/USDC only' });
+          result.skipped.push({ symbol, reason: 'classic options trade BTC/USDT only' });
           continue;
         }
 
@@ -174,7 +174,7 @@ export class TradingLoop {
           // EXACTLY the stake (no fee drift), gets the fixed default duration
           // and an explicit expiry, and is settled by the 1s scheduler.
           const position = this.options.openOption({
-            asset: 'BTC/USDC',
+            asset: 'BTC/USDT',
             side,
             stakeUsd: decision.proposedTradeSizeUsd,
             durationSeconds: getClassicSettingsStore().defaultDurationSeconds(),

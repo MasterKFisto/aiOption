@@ -29,7 +29,7 @@ export const OPTION_PAYOUT_RATIO = 0.8;
 /** Exact user-facing rejection messages (Phase 6.5.1). */
 export const CLASSIC_ERRORS = {
   insufficientBalance: 'Insufficient available balance.',
-  maxStake: (max: number) => `Maximum option stake is ${max} USDC.`,
+  maxStake: (max: number) => `Maximum option stake is ${max} USDT.`,
   invalidDuration: 'Invalid option duration.',
   tradingDisabled:
     'Classic Options trading is disabled — press Start Trading on the Classic Options page.',
@@ -124,14 +124,14 @@ export class OptionService {
     if (stakeUsd > maxStake + 1e-9) {
       logRiskEvent({
         type: 'MAX_STAKE_LIMIT_REJECTED',
-        message: `classic open rejected: stake ${stakeUsd} exceeds the ${maxStake} USDC maximum`,
+        message: `classic open rejected: stake ${stakeUsd} exceeds the ${maxStake} USDT maximum`,
         equityAtTrigger: account.equity,
       });
       throw new ClassicOptionError(CLASSIC_ERRORS.maxStake(maxStake), 'MAX_STAKE');
     }
     if (stakeUsd < config.MIN_OPTION_STAKE_USD - 1e-9) {
       throw new ClassicOptionError(
-        `Minimum option stake is ${config.MIN_OPTION_STAKE_USD} USDC.`,
+        `Minimum option stake is ${config.MIN_OPTION_STAKE_USD} USDT.`,
         'MIN_STAKE',
       );
     }

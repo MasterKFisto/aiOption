@@ -36,7 +36,7 @@ services:
     # Operational overrides (stop the app before running the UAT reset CLI):
     #   docker compose -f docker-compose.prod.yml stop app
     #   docker compose -f docker-compose.prod.yml run --rm --no-deps \
-    #     -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDC=1000 \
+    #     -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDT=1000 \
     #     app node apps/server/dist/scripts/resetUat.js
 
 volumes:

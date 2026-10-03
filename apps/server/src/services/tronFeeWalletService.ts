@@ -9,7 +9,7 @@ import {
   listTrxFeeDeposits,
 } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { resolveTrxFeeWalletAddress, resolveUsdcTradeAddress } from './appSettings.js';
+import { resolveTrxFeeWalletAddress, resolveUsdtTradeAddress } from './appSettings.js';
 import { lastProbedResources } from './tronStatusService.js';
 
 /**
@@ -21,7 +21,7 @@ export function getFeeWalletAddress(): string {
 }
 
 export function getFeeDepositInfo(): TrxFeeDepositInfo {
-  const tradeAddress = resolveUsdcTradeAddress().address;
+  const tradeAddress = resolveUsdtTradeAddress().address;
   const sameAddressAsDeposit = tradeAddress !== '' && getFeeWalletAddress() === tradeAddress;
   return {
     feeWalletAddress: getFeeWalletAddress(),
@@ -32,7 +32,7 @@ export function getFeeDepositInfo(): TrxFeeDepositInfo {
     acceptTrxDeposits: config.TRON_ACCEPT_TRX_DEPOSITS,
     requiredConfirmations: config.TRON_FEE_DEPOSIT_REQUIRED_CONFIRMATIONS,
     warning:
-      'TRX deposits are used only for Tron network fees. They are not credited as USDC trading balance.',
+      'TRX deposits are used only for Tron network fees. They are not credited as USDT trading balance.',
   };
 }
 
@@ -49,7 +49,7 @@ export function getFeeReserveStatus(): TrxFeeStatus {
   const warnings: string[] = [];
   if (!sufficient) {
     warnings.push(
-      `TRX fee reserve (${trxBalance}) is below the ${config.TRON_MIN_TRX_FEE_RESERVE} minimum — fund the fee wallet with TRX before withdrawing USDC`,
+      `TRX fee reserve (${trxBalance}) is below the ${config.TRON_MIN_TRX_FEE_RESERVE} minimum — fund the fee wallet with TRX before withdrawing USDT`,
     );
   }
   if (!config.TRON_ACCEPT_TRX_DEPOSITS) {

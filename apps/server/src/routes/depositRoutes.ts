@@ -5,7 +5,7 @@ import { roundMoney } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { getAccount, listDeposits } from '../db/repositories.js';
-import { resolveUsdcTradeAddress } from '../services/appSettings.js';
+import { resolveUsdtTradeAddress } from '../services/appSettings.js';
 import { getLastSyncedAt, recordSimulatedDeposit, syncDepositsOnce } from '../services/depositSyncService.js';
 import { tronService } from '../services/tronService.js';
 import type { SimulatedTronService } from '../services/tronService.js';
@@ -15,15 +15,15 @@ const simulateSchema = z.object({
 });
 
 /**
- * Tron USDC (TRC20) deposit endpoints. Registered with prefix /api.
+ * Tron USDT (TRC20) deposit endpoints. Registered with prefix /api.
  */
 export async function depositRoutes(app: FastifyInstance): Promise<void> {
   app.get('/deposits/info', async () => ({
     // UI-saved trade address (Phase 6.5.1) → env → simulated placeholder.
     address: await tronService.getDepositAddress(),
-    addressSource: resolveUsdcTradeAddress().source,
+    addressSource: resolveUsdtTradeAddress().source,
     network: 'TRON',
-    asset: 'USDC',
+    asset: 'USDT',
     tokenStandard: 'TRC20',
     tronMode: config.TRON_MODE,
     liveWithdrawalsEnabled: config.ENABLE_LIVE_TRON_WITHDRAWALS,
@@ -46,8 +46,8 @@ export async function depositRoutes(app: FastifyInstance): Promise<void> {
     }
 
     const simulated = tronService as SimulatedTronService;
-    if (typeof simulated.simulateIncomingUsdc === 'function') {
-      simulated.simulateIncomingUsdc(roundMoney(parsed.data.amount));
+    if (typeof simulated.simulateIncomingUsdt === 'function') {
+      simulated.simulateIncomingUsdt(roundMoney(parsed.data.amount));
       await syncDepositsOnce();
     } else {
       // TESTNET with a real (test) network service: credit the internal test

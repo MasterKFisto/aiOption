@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { Position, RiskEvent } from '@aioption/shared';
+import { TESTNET_ASSET_NOTICE } from '@aioption/shared';
 
 import { api } from './api/client';
 import { subscribeUiEvents, useApiEvents } from './api/events';
@@ -222,7 +223,7 @@ export default function App() {
             showIcon
             data-testid="testnet-banner"
             message={TESTNET_BANNER_TEXT}
-            description={`Tron network: ${tronStatus.networkName}${tronStatus.isTestnet ? '' : ' (NOT a testnet — check configuration!)'}`}
+            description={`Tron network: ${tronStatus.networkName}${tronStatus.isTestnet ? '' : ' (NOT a testnet — check configuration!)'}. ${TESTNET_ASSET_NOTICE}`}
           />
         )}
         <Content style={{ padding: 24 }}>

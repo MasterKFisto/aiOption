@@ -35,7 +35,7 @@ const withdrawalSchema = z
   });
 
 /**
- * Tron USDC (TRC20) withdrawal endpoints. Registered with prefix /api.
+ * Tron USDT (TRC20) withdrawal endpoints. Registered with prefix /api.
  *
  * SAFETY: in simulated mode nothing is broadcast; in live mode withdrawals are
  * recorded as REQUESTED unless ENABLE_LIVE_TRON_WITHDRAWALS=true.
@@ -88,7 +88,7 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
         destinationAddress,
         status: 'SIMULATED',
         txid: `sim-${randomUUID()}`,
-        notes: 'simulated Tron USDC TRC20 withdrawal',
+        notes: 'simulated Tron USDT TRC20 withdrawal',
         feeEstimateTrx: fee.estimatedFeeTrx,
         feeEstimateUsd: fee.estimatedFeeUsd,
         feePayer: fee.feePayer,
@@ -97,7 +97,7 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
         feeReserveSufficient: feeReserve.sufficientFeeReserve,
         feeReserveError: feeReserve.warnings.join('; ') || null,
       });
-      new WalletService().withdraw(amount, `Tron USDC withdrawal to ${destinationAddress}`);
+      new WalletService().withdraw(amount, `Tron USDT withdrawal to ${destinationAddress}`);
       publishEvent('withdrawal', withdrawal);
       return { withdrawal, account: getAccount(), feeEstimate: fee };
     }
@@ -112,7 +112,7 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
       });
       return reply.code(400).send({
         error:
-          'Insufficient fee resources: fund the hot wallet with TRX or energy before withdrawing USDC',
+          'Insufficient fee resources: fund the hot wallet with TRX or energy before withdrawing USDT',
         feeEstimate: fee,
       });
     }
@@ -143,11 +143,11 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
-      const broadcast = await tronService.sendUsdcWithdrawal({
+      const broadcast = await tronService.sendUsdtWithdrawal({
         destinationAddress,
-        amountUsdc: amount,
+        amountUsdt: amount,
       });
-      new WalletService().withdraw(amount, `Tron USDC withdrawal to ${destinationAddress}`);
+      new WalletService().withdraw(amount, `Tron USDT withdrawal to ${destinationAddress}`);
       const updated = updateWithdrawalStatus(withdrawal.id, 'BROADCAST', { txid: broadcast.txid });
       publishEvent('withdrawal', updated);
       return { withdrawal: updated, account: getAccount() };

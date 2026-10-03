@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
 
 import { config } from '../config.js';
-import { SIMULATED_DEPOSIT_ADDRESS, resolveUsdcTradeAddress } from './appSettings.js';
+import { SIMULATED_DEPOSIT_ADDRESS, resolveUsdtTradeAddress } from './appSettings.js';
 import { TronGridTronService } from './tronGridService.js';
 
-/** An incoming USDC TRC20 transfer observed on-chain. */
-export interface IncomingUsdcTransfer {
+/** An incoming USDT TRC20 transfer observed on-chain. */
+export interface IncomingUsdtTransfer {
   txid: string;
   fromAddress: string;
   toAddress: string;
-  /** Amount in USDC (already divided by 1e6). */
-  amountUsdc: number;
+  /** Amount in USDT (already divided by 1e6). */
+  amountUsdt: number;
   confirmations: number;
   blockTimestamp: number;
 }
@@ -27,7 +27,7 @@ export interface TransactionStatusResult {
 }
 
 /**
- * Tron USDC (TRC20) abstraction. Implementations:
+ * Tron USDT (TRC20) abstraction. Implementations:
  *  - SimulatedTronService: no real chain interaction (default).
  *  - TronGridTronService: real TronGrid API; withdrawals only when explicitly
  *    enabled and signed by the server-side hot wallet key.
@@ -37,10 +37,10 @@ export interface TransactionStatusResult {
  */
 export interface TronService {
   getDepositAddress(): Promise<string>;
-  getIncomingUsdcTransfers(): Promise<IncomingUsdcTransfer[]>;
-  sendUsdcWithdrawal(params: {
+  getIncomingUsdtTransfers(): Promise<IncomingUsdtTransfer[]>;
+  sendUsdtWithdrawal(params: {
     destinationAddress: string;
-    amountUsdc: number;
+    amountUsdt: number;
   }): Promise<WithdrawalBroadcastResult>;
   getTransactionStatus(txid: string): Promise<TransactionStatusResult>;
 }
@@ -53,15 +53,15 @@ export { SIMULATED_DEPOSIT_ADDRESS };
  * to a real chain.
  */
 export class SimulatedTronService implements TronService {
-  private readonly transfers: IncomingUsdcTransfer[] = [];
+  private readonly transfers: IncomingUsdtTransfer[] = [];
 
   /** Creates a fake incoming transfer (used by POST /api/deposits/simulate). */
-  simulateIncomingUsdc(amountUsdc: number, fromAddress?: string): IncomingUsdcTransfer {
-    const transfer: IncomingUsdcTransfer = {
+  simulateIncomingUsdt(amountUsdt: number, fromAddress?: string): IncomingUsdtTransfer {
+    const transfer: IncomingUsdtTransfer = {
       txid: `sim-${randomUUID()}`,
       fromAddress: fromAddress ?? 'TSimulatedSenderAddress000000000000',
       toAddress: this.address(),
-      amountUsdc,
+      amountUsdt,
       confirmations: 999,
       blockTimestamp: Date.now(),
     };
@@ -71,20 +71,20 @@ export class SimulatedTronService implements TronService {
 
   /** DB-stored trade address (Phase 6.5.1) → env → simulated placeholder. */
   private address(): string {
-    return resolveUsdcTradeAddress().address || SIMULATED_DEPOSIT_ADDRESS;
+    return resolveUsdtTradeAddress().address || SIMULATED_DEPOSIT_ADDRESS;
   }
 
   async getDepositAddress(): Promise<string> {
     return this.address();
   }
 
-  async getIncomingUsdcTransfers(): Promise<IncomingUsdcTransfer[]> {
+  async getIncomingUsdtTransfers(): Promise<IncomingUsdtTransfer[]> {
     return [...this.transfers];
   }
 
-  async sendUsdcWithdrawal(_params: {
+  async sendUsdtWithdrawal(_params: {
     destinationAddress: string;
-    amountUsdc: number;
+    amountUsdt: number;
   }): Promise<WithdrawalBroadcastResult> {
     // Simulated withdrawals are handled by the withdrawal flow itself;
     // reaching the chain here would be a bug.

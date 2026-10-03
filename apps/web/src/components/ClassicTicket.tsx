@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { durationLabel } from './ClassicTradingPanel';
 
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
+
 const QUICK_STAKES = [10, 25, 50, 100];
 const DEFAULT_DURATIONS = [60, 180, 300, 600, 900, 1800, 3600];
 
@@ -42,7 +44,7 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
   const tradingEnabled = status?.tradingEnabled ?? summary?.account.tradingEnabled ?? false;
   const ticketError =
     stake > maxStake
-      ? `Maximum option stake is ${maxStake} USDC.`
+      ? `Maximum option stake is ${maxStake} ${BASE_CURRENCY_LABEL}.`
       : stake > available
         ? 'Insufficient available balance.'
         : null;
@@ -64,7 +66,7 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
     <Card title="Classic Raise" size="small">
       {contextHolder}
       <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-        BTC/USDC @ ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        BTC/USDT @ ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
       </Typography.Paragraph>
 
       <Row gutter={[8, 8]}>
@@ -157,7 +159,7 @@ export function ClassicTicket({ currentPrice }: { currentPrice: number }) {
             disabled={ticketError !== null || !tradingEnabled}
             onClick={() =>
               openMutation.mutate({
-                asset: 'BTC/USDC',
+                asset: 'BTC/USDT',
                 side,
                 stakeUsd: stake,
                 durationSeconds: duration,

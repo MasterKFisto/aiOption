@@ -443,7 +443,7 @@ describe('AI binary service — profit target (Phase 6.4)', () => {
         `INSERT INTO binary_contracts
            (asset, direction, stake_usd, payout_ratio, potential_profit_usd, total_return_if_win_usd,
             entry_price, status, source, result, opened_at, expires_at, settled_at, settlement_price)
-         VALUES ('BTC/USDC', 'UP', 10, 0.8, 6, 18, 100, 'SETTLED', 'AI_BINARY', 'WIN',
+         VALUES ('BTC/USDT', 'UP', 10, 0.8, 6, 18, 100, 'SETTLED', 'AI_BINARY', 'WIN',
                  ?, ?, ?, 101)`,
       )
       .run(nowIso, nowIso, nowIso);
@@ -453,7 +453,7 @@ describe('AI binary service — profit target (Phase 6.4)', () => {
         `INSERT INTO binary_contracts
            (asset, direction, stake_usd, payout_ratio, potential_profit_usd, total_return_if_win_usd,
             entry_price, status, source, result, opened_at, expires_at, settled_at, settlement_price)
-         VALUES ('BTC/USDC', 'UP', 10, 0.8, 6, 18, 100, 'SETTLED', 'AI_BINARY', 'WIN',
+         VALUES ('BTC/USDT', 'UP', 10, 0.8, 6, 18, 100, 'SETTLED', 'AI_BINARY', 'WIN',
                  ?, ?, ?, 101)`,
       )
       .run(nowIso, nowIso, nowIso);

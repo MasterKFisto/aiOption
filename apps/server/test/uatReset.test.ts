@@ -14,7 +14,7 @@ let connection: typeof import('../src/db/connection.js');
 let uatReset: typeof import('../src/admin/uatReset.js');
 
 const DEFAULTS = {
-  baseCurrency: 'USDC',
+  baseCurrency: 'USDT',
   fixedTradeSizeUsd: 10,
   lossLimitPercent: 40,
   maxOptionStakeUsd: 100,
@@ -26,7 +26,7 @@ function opts(overrides: Partial<import('../src/admin/uatReset.js').UatResetOpti
     mode: 'TESTNET' as const,
     confirm: 'YES',
     allowLive: undefined,
-    startingBalanceUsdc: 1000,
+    startingBalanceUsdt: 1000,
     defaults: DEFAULTS,
     ...overrides,
   };
@@ -69,7 +69,7 @@ describe('UAT reset safety guards', () => {
   it('refuses implausible starting balances', () => {
     for (const bad of [-1, Number.NaN, 1_000_001]) {
       expect(() =>
-        uatReset.runUatReset(connection.getDb(), opts({ startingBalanceUsdc: bad })),
+        uatReset.runUatReset(connection.getDb(), opts({ startingBalanceUsdt: bad })),
       ).toThrowError(uatReset.UatResetError);
     }
   });
@@ -98,17 +98,17 @@ describe('UAT reset behaviour', () => {
       "INSERT INTO risk_events (type, message, equity_at_trigger, triggered_at) VALUES ('TEST', 'seed', 500, ?)",
     ).run(now);
     db.prepare(
-      "INSERT INTO ai_decisions (symbol, action, confidence, created_at) VALUES ('BTC/USDC', 'HOLD', 0.5, ?)",
+      "INSERT INTO ai_decisions (symbol, action, confidence, created_at) VALUES ('BTC/USDT', 'HOLD', 0.5, ?)",
     ).run(now);
     db.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES ('junk_setting', '1', ?)").run(now);
-    db.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES ('usdc_trade_address', 'TAddr', ?)").run(now);
+    db.prepare("INSERT INTO app_settings (key, value, updated_at) VALUES ('usdt_trade_address', 'TAddr', ?)").run(now);
     db.prepare(
       "INSERT INTO app_settings (key, value, updated_at) VALUES ('migration_6_5_1_classic_defaults', 'done', ?) " +
         'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     ).run(now);
 
-    const result = uatReset.runUatReset(db, opts({ startingBalanceUsdc: 1000 }));
-    expect(result.startingBalanceUsdc).toBe(1000);
+    const result = uatReset.runUatReset(db, opts({ startingBalanceUsdt: 1000 }));
+    expect(result.startingBalanceUsdt).toBe(1000);
     expect(result.clearedRows['transactions']).toBeGreaterThan(0);
     expect(result.clearedRows['deposits']).toBeGreaterThan(0);
     expect(result.clearedRows['risk_events']).toBeGreaterThan(0);
@@ -142,11 +142,11 @@ describe('UAT reset behaviour', () => {
         .map((r) => [r.key, r.value]),
     );
     expect(settings['junk_setting']).toBeUndefined();
-    expect(settings['usdc_trade_address']).toBe('TAddr');
+    expect(settings['usdt_trade_address']).toBe('TAddr');
     expect(settings['migration_6_5_1_classic_defaults']).toBe('done');
     expect(settings['classic_trading_enabled']).toBe('false');
     expect(settings['binary_show_estimated_unrealized_pnl']).toBe('false');
-    expect(settings['uat_starting_balance_usdc']).toBe('1000');
+    expect(settings['uat_starting_balance_usdt']).toBe('1000');
     expect(settings['uat_last_reset_at']).toBe(result.resetAt);
 
     // Post-reset verification passes…
@@ -163,7 +163,7 @@ describe('UAT reset behaviour', () => {
 
   it('is atomic and repeatable (reset on an empty database is a no-op wipe)', async () => {
     const db = connection.getDb();
-    const again = uatReset.runUatReset(db, opts({ startingBalanceUsdc: 0 }));
+    const again = uatReset.runUatReset(db, opts({ startingBalanceUsdt: 0 }));
     expect(again.ok).toBe(true);
     const verification = uatReset.verifyUatReset(db, 0);
     expect(verification.ok).toBe(true);

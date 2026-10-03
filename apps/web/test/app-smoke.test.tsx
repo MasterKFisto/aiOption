@@ -27,7 +27,7 @@ function stubFetch(): void {
         equity: 1000,
         cashBalance: 800,
         lockedBalance: 200,
-        baseCurrency: 'USDC',
+        baseCurrency: 'USDT',
         fixedTradeSizeUsd: 10,
         maxOpenPositions: 5,
         lossLimitPercent: 5,
@@ -67,7 +67,7 @@ function stubFetch(): void {
       losses: 0,
       refunds: 0,
       gainLimitEnabled: true,
-      maxSessionGainUsdc: 50,
+      maxSessionGainUsdt: 50,
       maxSessionGainPercent: 0,
       remainingSessionGain: 50,
       gainLimitReached: false,
@@ -81,7 +81,7 @@ function stubFetch(): void {
       purpose: 'network fee reserve',
       acceptTrxDeposits: true,
       requiredConfirmations: 20,
-      warning: 'TRX deposits are used only for Tron network fees. They are not credited as USDC trading balance.',
+      warning: 'TRX deposits are used only for Tron network fees. They are not credited as USDT trading balance.',
     },
     '/api/tron/fee-status': {
       feeWalletAddress: 'TSimulatedFeeWalletAddressTRX0000000001',
@@ -111,7 +111,7 @@ function stubFetch(): void {
     ],
     '/api/tron/fee-estimate?amount=100&destination=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t': {
       network: 'TRON',
-      asset: 'USDC',
+      asset: 'USDT',
       tokenStandard: 'TRC20',
       estimatedFeeTrx: 30,
       estimatedFeeUsd: 3.6,
@@ -129,7 +129,7 @@ function stubFetch(): void {
         status: 'connected',
         source: 'COINBASE',
         symbol: 'BTC/USDT',
-        requestedSymbol: 'BTC/USDC',
+        requestedSymbol: 'BTC/USDT',
         usingFallback: true,
         lastPrice: 67000,
         priceChange24h: 1000,
@@ -154,9 +154,9 @@ function stubFetch(): void {
     '/api/withdrawals': [],
     '/api/deposits': [],
     '/api/deposits/info': {
-      address: 'TSimulatedAiOptionDepositAddressUSDC1',
+      address: 'TSimulatedAiOptionDepositAddressUSDT1',
       network: 'TRON',
-      asset: 'USDC',
+      asset: 'USDT',
       tokenStandard: 'TRC20',
       tronMode: 'SIMULATED',
       liveWithdrawalsEnabled: false,
@@ -178,7 +178,7 @@ function stubFetch(): void {
     '/api/binary/open': [
       {
         id: 91,
-        asset: 'BTC/USDC',
+        asset: 'BTC/USDT',
         direction: 'UP',
         stakeUsd: 10,
         payoutRatio: 0.8,
@@ -410,16 +410,16 @@ function stubFetch(): void {
       },
     ],
     '/api/wallet/addresses': {
-      usdcTradeAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+      usdtTradeAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
       withdrawalDestinationAddress: '',
       effectiveWithdrawalDestinationAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
       trxFeeWalletAddress: 'TSimulatedFeeWalletAddressTRX0000000001',
-      usdcTradeAddressSource: 'DATABASE',
+      usdtTradeAddressSource: 'DATABASE',
       withdrawalDestinationAddressSource: 'NOT_SET',
       trxFeeWalletAddressSource: 'SIMULATED',
       updatedAt: new Date().toISOString(),
       validationStatus: {
-        usdcTradeAddress: { valid: true, addressType: 'TRON' },
+        usdtTradeAddress: { valid: true, addressType: 'TRON' },
         withdrawalDestinationAddress: null,
         trxFeeWalletAddress: { valid: false, addressType: 'UNKNOWN', reason: 'Simulated placeholder' },
       },
@@ -433,9 +433,9 @@ function stubFetch(): void {
       depositsEnabled: true,
       withdrawalsEnabled: true,
       liveWithdrawalsEnabled: false,
-      depositAddress: 'TSimulatedAiOptionDepositAddressUSDC1',
+      depositAddress: 'TSimulatedAiOptionDepositAddressUSDT1',
       hotWalletAddress: '',
-      usdcContractAddress: '',
+      usdtContractAddress: '',
       requiredConfirmations: 12,
       trxBalance: 120,
       energyAvailable: 100000,
@@ -452,7 +452,7 @@ function stubFetch(): void {
           time: new Date().toISOString(),
           type: 'OPTION_STAKE_LOCKED',
           amount: -10,
-          asset: 'USDC',
+          asset: 'USDT',
           network: null,
           status: 'RECORDED',
           reference: null,
@@ -471,7 +471,7 @@ function stubFetch(): void {
           time: new Date().toISOString(),
           type: 'WITHDRAWAL',
           amount: -50,
-          asset: 'USDC',
+          asset: 'USDT',
           network: 'TRON',
           status: 'SIMULATED',
           reference: 'sim-1',
@@ -597,7 +597,7 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByLabelText('About Unrealized PnL')).toBeTruthy();
       expect(screen.getByText('Open Classic Options PnL')).toBeTruthy();
       expect(screen.getByText('Open Binary Exposure')).toBeTruthy();
-      expect(screen.getByText(/USDC \(2 open\)/)).toBeTruthy();
+      expect(screen.getByText(/USDT \(2 open\)/)).toBeTruthy();
       // Conservative mode: no estimated binary PnL shown.
       expect(screen.queryByTestId('estimated-binary-title')).toBeNull();
     });
@@ -620,7 +620,7 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByRole('button', { name: 'Stop Trading' })).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Save Settings' })).toBeTruthy();
       expect(screen.getByTestId('classic-status').textContent).toBe('Trading Disabled');
-      expect(screen.getByText('Default stake (USDC)')).toBeTruthy();
+      expect(screen.getByText('Default stake (USDT)')).toBeTruthy();
       expect(screen.getByText(/Total loss limit/)).toBeTruthy();
     });
     // Ticket + settings default to 10 minutes.
@@ -634,8 +634,8 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText(/^9m \d\ds$|^10m 00s$/)).toBeTruthy();
       expect(screen.getByText('Recent settled positions')).toBeTruthy();
       expect(screen.getByText('WIN')).toBeTruthy();
-      expect(screen.getByText('USDC Tron trade address')).toBeTruthy();
-      expect(screen.getByTestId('usdc-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+      expect(screen.getByText('USDT Tron trade address')).toBeTruthy();
+      expect(screen.getByTestId('usdt-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
       expect(screen.getByText('Valid Tron address')).toBeTruthy();
     });
   });
@@ -717,13 +717,13 @@ describe('App smoke test (blank-screen regression guard)', () => {
         </ConfigProvider>
       </QueryClientProvider>,
     );
-    await screen.findByText('USDC Tron trade address');
+    await screen.findByText('USDT Tron trade address');
     const edit = await screen.findByRole('button', { name: 'Edit' });
     await waitFor(() => expect((edit as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(edit);
     await waitFor(() => {
       expect(screen.getByText(/Please verify the Tron address carefully/)).toBeTruthy();
-      expect(screen.getByText('USDC Tron trade address (TRC20)')).toBeTruthy();
+      expect(screen.getByText('USDT Tron trade address (TRC20)')).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Save address' })).toBeTruthy();
     });
   });
@@ -821,13 +821,13 @@ describe('App smoke test (blank-screen regression guard)', () => {
     await waitFor(() => {
       // Card title of the fee panel (the trade-address panel has a row with the same label).
       expect(screen.getAllByText('TRX fee wallet').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('USDC Tron trade address').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('USDT Tron trade address').length).toBeGreaterThan(0);
       // Shown in both the fee panel and the trade-address panel.
       expect(screen.getAllByText('TSimulatedFeeWalletAddressTRX0000000001').length).toBeGreaterThan(0);
-      expect(screen.getByTestId('usdc-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+      expect(screen.getByTestId('usdt-trade-address').textContent).toBe('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
       expect(screen.getByText('Simulate TRX fee deposit')).toBeTruthy();
       expect(screen.getByText('Recent TRX fee deposits')).toBeTruthy();
-      expect(screen.getByText(/not credited as USDC trading balance/)).toBeTruthy();
+      expect(screen.getByText(/not credited as USDT trading balance/)).toBeTruthy();
     });
 
     // The bottom-of-sidebar Tron indicator opens the status modal.
@@ -838,7 +838,7 @@ describe('App smoke test (blank-screen regression guard)', () => {
       expect(screen.getByText('Energy available')).toBeTruthy();
       // Trade address panel is reachable from the Tron status modal too.
       const modal = document.querySelector('.ant-modal') as HTMLElement;
-      expect(modal.textContent).toContain('USDC Tron trade address');
+      expect(modal.textContent).toContain('USDT Tron trade address');
     });
   });
 
@@ -860,7 +860,7 @@ describe('App smoke test (blank-screen regression guard)', () => {
     // Wait until the available balance has loaded, otherwise the amount
     // input (max = available) would clamp the typed amount to 0.
     await waitFor(() => {
-      expect(screen.getByText('Withdraw USDC')).toBeTruthy();
+      expect(screen.getByText('Withdraw USDT')).toBeTruthy();
       const modal = document.querySelector('.ant-modal') as HTMLElement;
       expect(modal.textContent).toContain('$800.00');
     });

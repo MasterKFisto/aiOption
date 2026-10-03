@@ -48,7 +48,7 @@ describe('TRX fee wallet endpoints', () => {
     expect(body.network).toBe('TRON');
     expect(body.purpose).toBe('network fee reserve');
     expect(body.feeWalletAddress).toBeTruthy();
-    expect(body.warning).toContain('not credited as USDC trading balance');
+    expect(body.warning).toContain('not credited as USDT trading balance');
   });
 
   it('reports an insufficient fee reserve before any TRX deposit', async () => {
@@ -61,7 +61,7 @@ describe('TRX fee wallet endpoints', () => {
     expect(body.warnings.length).toBeGreaterThan(0);
   });
 
-  it('simulated TRX deposits update the reserve without touching USDC', async () => {
+  it('simulated TRX deposits update the reserve without touching USDT', async () => {
     const before = repo.getAccount();
     const res = await app.inject({
       method: 'POST',
@@ -74,7 +74,7 @@ describe('TRX fee wallet endpoints', () => {
     expect(body.sufficientFeeReserve).toBe(true);
     expect(body.estimatedWithdrawalsSupported).toBe(3); // floor(100 / 30)
 
-    // USDC trading balance untouched — TRX is a separate reserve.
+    // USDT trading balance untouched — TRX is a separate reserve.
     expect(repo.getAccount().cashBalance).toBe(before.cashBalance);
 
     const deposits = await app.inject({ method: 'GET', url: '/api/tron/fee-deposits' });

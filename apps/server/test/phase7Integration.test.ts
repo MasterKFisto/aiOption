@@ -25,8 +25,8 @@ beforeAll(async () => {
   process.env['TRON_MODE'] = 'SHASTA';
   process.env['TRON_NETWORK_NAME'] = 'Shasta Testnet';
   process.env['TRON_EXPLORER_URL'] = 'https://shasta.tronscan.org';
-  process.env['TRON_DEPOSIT_ADDRESS'] = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t';
-  process.env['TRON_USDC_CONTRACT_ADDRESS'] = 'TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs';
+  process.env['TRON_DEPOSIT_ADDRESS'] = 'TTestnetDepositAddressPhase710000000';
+  process.env['TRON_USDT_CONTRACT_ADDRESS'] = 'TTestUsdtTokenContractPhase71000000';
 
   // Deterministic live feed (no network).
   const live = await import('../src/market/liveMarketDataService.js');
@@ -59,7 +59,7 @@ afterAll(async () => {
   const tronStatus = await import('../src/services/tronStatusService.js');
   tronStatus.setTronProber(null);
   vi.restoreAllMocks();
-  for (const name of ['DB_PATH', 'TRADING_MODE', 'TRON_MODE', 'TRON_NETWORK_NAME', 'TRON_EXPLORER_URL', 'TRON_DEPOSIT_ADDRESS', 'TRON_USDC_CONTRACT_ADDRESS']) {
+  for (const name of ['DB_PATH', 'TRADING_MODE', 'TRON_MODE', 'TRON_NETWORK_NAME', 'TRON_EXPLORER_URL', 'TRON_DEPOSIT_ADDRESS', 'TRON_USDT_CONTRACT_ADDRESS']) {
     delete process.env[name];
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -119,7 +119,7 @@ describe('Phase 7 integration — TESTNET on Shasta', () => {
     expect(balances.equity).toBe(800);
   });
 
-  it('deposits: a simulated USDC deposit is credited on the test ledger', async () => {
+  it('deposits: a simulated USDT deposit is credited on the test ledger', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/deposits/simulate', payload: { amount: 50 } });
     expect(res.statusCode).toBe(200);
     expect(res.json().deposit.txid).toMatch(/^sim-/);
@@ -154,7 +154,7 @@ describe('Phase 7 integration — TESTNET on Shasta', () => {
     const opened = await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
     expect(opened.statusCode).toBe(201);
     const contractId = opened.json().id;

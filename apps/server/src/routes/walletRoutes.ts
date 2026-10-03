@@ -5,7 +5,7 @@ import { config } from '../config.js';
 import { WalletService } from '../services/walletService.js';
 
 const amountSchema = z.object({
-  // Upper bound: no single paper movement above 1,000,000 USDC.
+  // Upper bound: no single paper movement above 1,000,000 USDT.
   amount: z.coerce.number().positive().max(1_000_000),
   description: z.string().trim().max(500).optional(),
 });

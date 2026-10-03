@@ -15,17 +15,17 @@ export function getLastSyncedAt(): string | null {
 }
 
 /**
- * Pulls incoming USDC transfers from the Tron service and credits new ones.
+ * Pulls incoming USDT transfers from the Tron service and credits new ones.
  * Idempotency: deposits carry a UNIQUE txid, so re-syncing the same transfer
  * is a no-op (never credited twice).
  */
 export async function syncDepositsOnce(): Promise<number> {
   let credited = 0;
   try {
-    const transfers = await tronService.getIncomingUsdcTransfers();
+    const transfers = await tronService.getIncomingUsdtTransfers();
     const wallet = new WalletService();
     for (const transfer of transfers) {
-      const amount = roundMoney(transfer.amountUsdc);
+      const amount = roundMoney(transfer.amountUsdt);
       const deposit = createDeposit({
         amount,
         fromAddress: transfer.fromAddress,
@@ -33,12 +33,12 @@ export async function syncDepositsOnce(): Promise<number> {
         status: 'CONFIRMED',
         confirmations: transfer.confirmations,
         creditedAt: new Date().toISOString(),
-        notes: 'Tron USDC TRC20 deposit',
+        notes: 'Tron USDT TRC20 deposit',
       });
       if (!deposit) {
         continue; // duplicate txid — already credited
       }
-      wallet.deposit(amount, `Tron USDC deposit ${transfer.txid}`);
+      wallet.deposit(amount, `Tron USDT deposit ${transfer.txid}`);
       publishEvent('deposit', deposit);
       credited++;
     }
@@ -50,14 +50,14 @@ export async function syncDepositsOnce(): Promise<number> {
 }
 
 /**
- * Phase 7: credits a SIMULATED USDC deposit straight onto the internal ledger
+ * Phase 7: credits a SIMULATED USDT deposit straight onto the internal ledger
  * without going through a Tron service. Used by /deposits/simulate in TESTNET
  * mode, where the active TronGrid service watches a real test network and has
  * no simulation method. The route gate (config.SIMULATION_ALLOWED) guarantees
  * this can never run in LIVE mode.
  */
-export function recordSimulatedDeposit(amountUsdc: number): boolean {
-  const amount = roundMoney(amountUsdc);
+export function recordSimulatedDeposit(amountUsdt: number): boolean {
+  const amount = roundMoney(amountUsdt);
   const txid = `sim-${randomUUID()}`;
   const deposit = createDeposit({
     amount,
@@ -66,12 +66,12 @@ export function recordSimulatedDeposit(amountUsdc: number): boolean {
     status: 'CONFIRMED',
     confirmations: 999,
     creditedAt: new Date().toISOString(),
-    notes: 'simulated Tron USDC TRC20 deposit (test ledger)',
+    notes: 'simulated Tron USDT TRC20 deposit (test ledger)',
   });
   if (!deposit) {
     return false;
   }
-  new WalletService().deposit(amount, `Simulated Tron USDC deposit ${txid}`);
+  new WalletService().deposit(amount, `Simulated Tron USDT deposit ${txid}`);
   publishEvent('deposit', deposit);
   return true;
 }

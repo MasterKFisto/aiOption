@@ -18,7 +18,7 @@ describe('config', () => {
     vi.resetModules();
     const { config } = await import('../src/config.js');
     expect(config.MODE).toBe('PAPER');
-    expect(config.BASE_CURRENCY).toBe('USDC');
+    expect(config.BASE_CURRENCY).toBe('USDT');
     expect(config.FIXED_TRADE_SIZE_USD).toBe(10);
     expect(config.PORT).toBe(8080);
     expect(config.CORS_ORIGINS).toEqual(['http://localhost:5173']);

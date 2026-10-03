@@ -12,7 +12,7 @@ import { runUatReset, UatResetError, verifyUatReset } from './uatReset.js';
 const resetSchema = z
   .object({
     confirm: z.literal('YES'),
-    startingBalanceUsdc: z.coerce.number().min(0).max(1_000_000).default(0),
+    startingBalanceUsdt: z.coerce.number().min(0).max(1_000_000).default(0),
     allowLive: z.boolean().default(false),
   })
   .strict();
@@ -38,7 +38,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
     const parsed = resetSchema.safeParse(request.body ?? {});
     if (!parsed.success) {
       return reply.code(400).send({
-        error: 'body must be {"confirm":"YES","startingBalanceUsdc":<number>}',
+        error: 'body must be {"confirm":"YES","startingBalanceUsdt":<number>}',
         issues: parsed.error.issues,
       });
     }
@@ -50,7 +50,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
         mode: config.MODE,
         confirm: parsed.data.confirm,
         allowLive: parsed.data.allowLive && process.env['UAT_RESET_ALLOW_LIVE'] === 'true' ? 'true' : undefined,
-        startingBalanceUsdc: parsed.data.startingBalanceUsdc,
+        startingBalanceUsdt: parsed.data.startingBalanceUsdt,
         defaults: {
           baseCurrency: config.BASE_CURRENCY,
           fixedTradeSizeUsd: config.FIXED_TRADE_SIZE_USD,
@@ -63,7 +63,7 @@ export async function adminRoutes(app: FastifyInstance): Promise<void> {
       publishEvent('account', { action: 'UAT_RESET' });
       return {
         ...result,
-        verification: verifyUatReset(getDb(), result.startingBalanceUsdc),
+        verification: verifyUatReset(getDb(), result.startingBalanceUsdt),
         note: 'restart the server so in-memory session state starts clean',
       };
     } catch (err) {

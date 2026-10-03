@@ -14,14 +14,14 @@ const addressField = z.string().max(128).optional();
 
 const updateSchema = z
   .object({
-    usdcTradeAddress: addressField,
+    usdtTradeAddress: addressField,
     withdrawalDestinationAddress: addressField,
     trxFeeWalletAddress: addressField,
   })
   .strict()
   .refine(
     (value) =>
-      value.usdcTradeAddress !== undefined ||
+      value.usdtTradeAddress !== undefined ||
       value.withdrawalDestinationAddress !== undefined ||
       value.trxFeeWalletAddress !== undefined,
     { message: 'provide at least one address' },
@@ -34,7 +34,7 @@ const validateSchema = z.object({ address: z.string().max(128) }).strict();
  * Only PUBLIC addresses are stored/returned — never keys or signing config.
  *
  *   GET  /api/wallet/addresses
- *   PUT  /api/wallet/addresses          { usdcTradeAddress?, withdrawalDestinationAddress?, trxFeeWalletAddress? }
+ *   PUT  /api/wallet/addresses          { usdtTradeAddress?, withdrawalDestinationAddress?, trxFeeWalletAddress? }
  *   POST /api/wallet/addresses/validate { address }
  *   GET  /api/settings/audit            settings/address change log
  */

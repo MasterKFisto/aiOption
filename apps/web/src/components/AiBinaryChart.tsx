@@ -165,7 +165,7 @@ export function AiBinaryChart() {
     <Card
       title={
         <span>
-          Live {ticker?.symbol ?? 'BTC/USDC'} chart{' '}
+          Live {ticker?.symbol ?? 'BTC/USDT'} chart{' '}
           <Tag color="blue">{current > 0 ? current.toFixed(2) : '—'}</Tag>
           <Tag color={statusColors[connectionStatus] ?? 'default'}>{connectionStatus}</Tag>
         </span>

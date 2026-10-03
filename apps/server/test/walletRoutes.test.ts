@@ -99,7 +99,7 @@ describe('wallet routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.cashBalance).toBe(123);
-    expect(body.baseCurrency).toBe('USDC');
+    expect(body.baseCurrency).toBe('USDT');
   });
 
   it('every API wallet movement is persisted as a transaction', async () => {

@@ -1,5 +1,7 @@
 import { Button, Modal, Typography } from 'antd';
 
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
+
 export interface PostTradePrompt {
   fingerprint: string;
   title: string;
@@ -39,7 +41,7 @@ export function PostTradeActionModal({
     >
       <Typography.Paragraph>{prompt?.message}</Typography.Paragraph>
       <Typography.Paragraph type="secondary">
-        Available balance: ${availableBalance.toFixed(2)} USDC. You can keep the funds for the
+        Available balance: ${availableBalance.toFixed(2)} {BASE_CURRENCY_LABEL}. You can keep the funds for the
         next trade or withdraw them to your Tron address.
       </Typography.Paragraph>
     </Modal>

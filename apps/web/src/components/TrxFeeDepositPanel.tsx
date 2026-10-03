@@ -4,6 +4,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
 
 import type { TrxFeeDeposit } from '@aioption/shared';
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
 
@@ -89,7 +90,7 @@ export function TrxFeeDepositPanel({ compact = false }: { compact?: boolean }) {
             </Descriptions.Item>
             {info.sameAddressAsDeposit && (
               <Descriptions.Item label="Note">
-                TRX and USDC deposits use the same address.
+                TRX and {BASE_CURRENCY_LABEL} deposits use the same address.
               </Descriptions.Item>
             )}
           </Descriptions>
@@ -112,7 +113,7 @@ export function TrxFeeDepositPanel({ compact = false }: { compact?: boolean }) {
           type="error"
           showIcon
           style={{ marginTop: 8 }}
-          message={`Insufficient TRX fee reserve. Fund the fee wallet with at least ${status.minTrxFeeReserve} TRX before withdrawing USDC.`}
+          message={`Insufficient TRX fee reserve. Fund the fee wallet with at least ${status.minTrxFeeReserve} TRX before withdrawing ${BASE_CURRENCY_LABEL}.`}
         />
       )}
 

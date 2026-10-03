@@ -41,7 +41,7 @@ describe('security hardening', () => {
     const app = await buildApp();
     const bad = [
       '../admin',
-      'BTC/USDC?granularity=1',
+      'BTC/USDT?granularity=1',
       'BTC%2F..%2F..%2Fetc',
       'a/b/c',
     ];

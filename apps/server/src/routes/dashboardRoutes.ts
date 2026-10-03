@@ -61,7 +61,7 @@ function unifiedAccountSummary(): AccountSummary {
     dailyLossRemainingUsd,
     lossLimitFloorUsd,
     binarySessionGainUsd: roundMoney(sessionStats.combinedNetGain),
-    binarySessionGainLimitUsd: sessionStats.gainLimitEnabled ? sessionStats.maxSessionGainUsdc : 0,
+    binarySessionGainLimitUsd: sessionStats.gainLimitEnabled ? sessionStats.maxSessionGainUsdt : 0,
     binarySessionGainRemainingUsd: roundMoney(sessionStats.remainingSessionGain),
     binarySessionGainLimitReached: sessionStats.gainLimitReached,
     aiBinarySessionProfitUsd: roundMoney(latestAiSessionProfit()),

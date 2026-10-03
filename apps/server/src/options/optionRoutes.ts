@@ -7,7 +7,7 @@ import type { OptionService } from './optionService.js';
 // Duration is REQUIRED (no coercion of missing values to a default); its
 // allowed set and 60-minute cap are enforced by OptionService.validateDuration.
 const openSchema = z.object({
-  asset: z.literal('BTC/USDC').default('BTC/USDC'),
+  asset: z.literal('BTC/USDT').default('BTC/USDT'),
   side: z.enum(['CALL', 'PUT']),
   stakeUsd: z.number().finite().positive(),
   durationSeconds: z.number(),

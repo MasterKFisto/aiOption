@@ -126,7 +126,7 @@ describe('whole-system journey (classic + binary + wallet + Tron)', () => {
     const open = await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
     expect(open.statusCode).toBe(201);
     const contract = open.json();
@@ -150,7 +150,7 @@ describe('whole-system journey (classic + binary + wallet + Tron)', () => {
     const binarySummary = await app.inject({ method: 'GET', url: '/api/binary/summary' });
     expect(binarySummary.json()).toMatchObject({ wins: 1, losses: 0, openCount: 0 });
 
-    // 8. Withdraw via Tron USDC (simulated).
+    // 8. Withdraw via Tron USDT (simulated).
     const withdraw = await app.inject({
       method: 'POST',
       url: '/api/withdrawals',
@@ -163,7 +163,7 @@ describe('whole-system journey (classic + binary + wallet + Tron)', () => {
 
     // 9. Deposit info + classic endpoints still healthy.
     const info = await app.inject({ method: 'GET', url: '/api/deposits/info' });
-    expect(info.json()).toMatchObject({ network: 'TRON', asset: 'USDC', tokenStandard: 'TRC20' });
+    expect(info.json()).toMatchObject({ network: 'TRON', asset: 'USDT', tokenStandard: 'TRC20' });
 
     const positions = await app.inject({ method: 'GET', url: '/api/positions' });
     expect(positions.statusCode).toBe(200);
@@ -190,7 +190,7 @@ describe('whole-system journey (classic + binary + wallet + Tron)', () => {
     await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
 
     const types = events.map((event) => event.type);

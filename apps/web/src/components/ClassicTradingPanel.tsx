@@ -18,6 +18,7 @@ import {
 import { useEffect } from 'react';
 
 import type { ClassicBlockedReason, ClassicSettingsUpdate } from '@aioption/shared';
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
 import { emitUiEvent } from '../api/events';
@@ -205,7 +206,7 @@ export function ClassicTradingPanel() {
       <Form form={form} layout="vertical" size="small" onFinish={(values) => saveMutation.mutate(values)}>
         <Row gutter={8}>
           <Col span={12}>
-            <Form.Item name="defaultStakeUsd" label="Default stake (USDC)" rules={[{ required: true }]}>
+            <Form.Item name="defaultStakeUsd" label={`Default stake (${BASE_CURRENCY_LABEL})`} rules={[{ required: true }]}>
               <InputNumber min={settings?.minStakeUsd ?? 1} max={ceiling} style={{ width: '100%' }} />
             </Form.Item>
           </Col>

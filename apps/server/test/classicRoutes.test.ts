@@ -190,7 +190,7 @@ describe('POST /api/options/open — Phase 6.5.1 locking and validation', () => 
     await start();
   });
 
-  it('a 10 USDC open locks exactly 10 and status shows the sum of stakes', async () => {
+  it('a 10 USDT open locks exactly 10 and status shows the sum of stakes', async () => {
     expect((await open({ side: 'CALL', stakeUsd: 10, durationSeconds: 600 })).statusCode).toBe(201);
     expect((await open({ side: 'PUT', stakeUsd: 15, durationSeconds: 60 })).statusCode).toBe(201);
     const status = (await app.inject({ method: 'GET', url: '/api/classic/status' })).json();
@@ -199,7 +199,7 @@ describe('POST /api/options/open — Phase 6.5.1 locking and validation', () => 
 
   it('returns the exact error messages', async () => {
     let res = await open({ side: 'CALL', stakeUsd: 101, durationSeconds: 600 });
-    expect(res.json().error).toBe('Maximum option stake is 100 USDC.');
+    expect(res.json().error).toBe('Maximum option stake is 100 USDT.');
     res = await open({ side: 'CALL', stakeUsd: 10, durationSeconds: 7200 });
     expect(res.json().error).toBe('Invalid option duration.');
     res = await open({ side: 'CALL', stakeUsd: 10 }); // missing duration
@@ -214,7 +214,7 @@ describe('POST /api/options/open — Phase 6.5.1 locking and validation', () => 
   });
 
   it('rejects other assets and injection payloads', async () => {
-    for (const asset of ['ETH/USDC', "BTC/USDC'; DROP TABLE positions;--", '']) {
+    for (const asset of ['ETH/USDT', "BTC/USDT'; DROP TABLE positions;--", '']) {
       expect((await open({ asset, side: 'CALL', stakeUsd: 10, durationSeconds: 600 })).statusCode).toBe(400);
     }
     expect(connection.getDb().prepare('SELECT COUNT(*) AS n FROM positions').get()).toEqual({ n: 0 });

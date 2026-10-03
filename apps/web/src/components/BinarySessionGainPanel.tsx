@@ -3,6 +3,7 @@ import { Alert, Button, Card, Col, InputNumber, Row, Space, Statistic, Switch, m
 import { useEffect, useState } from 'react';
 
 import type { BinarySessionSettingsUpdate } from '@aioption/shared';
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
 import { emitUiEvent } from '../api/events';
@@ -22,14 +23,14 @@ export function BinarySessionGainPanel() {
   });
 
   const [enabled, setEnabled] = useState(true);
-  const [maxUsdc, setMaxUsdc] = useState(50);
+  const [maxUsdt, setMaxUsdt] = useState(50);
   const [maxPercent, setMaxPercent] = useState(0);
   const [seeded, setSeeded] = useState(false);
 
   useEffect(() => {
     if (stats && !seeded) {
       setEnabled(stats.gainLimitEnabled);
-      setMaxUsdc(stats.maxSessionGainUsdc || 50);
+      setMaxUsdt(stats.maxSessionGainUsdt || 50);
       setMaxPercent(stats.maxSessionGainPercent);
       setSeeded(true);
     }
@@ -61,7 +62,7 @@ export function BinarySessionGainPanel() {
   const save = () => {
     const patch: BinarySessionSettingsUpdate = {
       gainLimitEnabled: enabled,
-      maxSessionGainUsdc: maxUsdc,
+      maxSessionGainUsdt: maxUsdt,
       maxSessionGainPercent: maxPercent,
     };
     saveMutation.mutate(patch);
@@ -88,8 +89,8 @@ export function BinarySessionGainPanel() {
           </Space>
         </Col>
         <Col span={12}>
-          <div style={{ fontSize: 12, color: '#888' }}>Max session gain (USDC)</div>
-          <InputNumber min={1} value={maxUsdc} onChange={(value) => setMaxUsdc(value ?? 50)} style={{ width: '100%' }} />
+          <div style={{ fontSize: 12, color: '#888' }}>Max session gain ({BASE_CURRENCY_LABEL})</div>
+          <InputNumber min={1} value={maxUsdt} onChange={(value) => setMaxUsdt(value ?? 50)} style={{ width: '100%' }} />
         </Col>
         <Col span={12}>
           <div style={{ fontSize: 12, color: '#888' }}>Max gain % of equity (0 = off)</div>

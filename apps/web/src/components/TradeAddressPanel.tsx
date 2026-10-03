@@ -16,6 +16,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { useState } from 'react';
 
 import type { AddressSource, AddressValidation, WalletAddressesUpdate } from '@aioption/shared';
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
 
@@ -41,13 +42,13 @@ function ValidationTag({ validation }: { validation: AddressValidation | null })
 }
 
 interface FormValues {
-  usdcTradeAddress: string;
+  usdtTradeAddress: string;
   withdrawalDestinationAddress: string;
   trxFeeWalletAddress: string;
 }
 
 /**
- * User-editable USDC Tron trade address (Phase 6.5.1): shows the current
+ * User-editable USDT Tron trade address (Phase 6.5.1): shows the current
  * address, source, QR, copy, last update and validation; edits are
  * validated server-side and require confirmation before saving.
  */
@@ -91,7 +92,7 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
   const startEdit = () => {
     if (data) {
       form.setFieldsValue({
-        usdcTradeAddress: data.usdcTradeAddressSource === 'SIMULATED' ? '' : data.usdcTradeAddress,
+        usdtTradeAddress: data.usdtTradeAddressSource === 'SIMULATED' ? '' : data.usdtTradeAddress,
         withdrawalDestinationAddress: data.withdrawalDestinationAddress,
         trxFeeWalletAddress: data.trxFeeWalletAddressSource === 'DATABASE' ? data.trxFeeWalletAddress : '',
       });
@@ -101,7 +102,7 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
 
   const submit = (values: FormValues) => {
     const patch: WalletAddressesUpdate = {
-      usdcTradeAddress: values.usdcTradeAddress.trim(),
+      usdtTradeAddress: values.usdtTradeAddress.trim(),
       withdrawalDestinationAddress: (values.withdrawalDestinationAddress ?? '').trim(),
       trxFeeWalletAddress: (values.trxFeeWalletAddress ?? '').trim(),
     };
@@ -111,9 +112,9 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
       content: (
         <>
           <Alert type="warning" showIcon message={ADDRESS_WARNING} style={{ marginBottom: 12 }} />
-          <Typography.Paragraph style={{ marginBottom: 4 }}>New USDC trade address:</Typography.Paragraph>
+          <Typography.Paragraph style={{ marginBottom: 4 }}>New {BASE_CURRENCY_LABEL} trade address:</Typography.Paragraph>
           <Typography.Text code style={{ wordBreak: 'break-all' }}>
-            {patch.usdcTradeAddress}
+            {patch.usdtTradeAddress}
           </Typography.Text>
         </>
       ),
@@ -122,21 +123,21 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
   };
 
   const copy = () => {
-    if (data?.usdcTradeAddress) {
-      void navigator.clipboard?.writeText(data.usdcTradeAddress);
+    if (data?.usdtTradeAddress) {
+      void navigator.clipboard?.writeText(data.usdtTradeAddress);
       messageApi.success('Trade address copied');
     }
   };
 
-  const source = data ? SOURCE_LABEL[data.usdcTradeAddressSource] : null;
+  const source = data ? SOURCE_LABEL[data.usdtTradeAddressSource] : null;
 
   return (
     <Card
-      title="USDC Tron trade address"
+      title={`${BASE_CURRENCY_LABEL} Tron trade address`}
       size="small"
       extra={
         <Space size={4}>
-          <Button size="small" onClick={copy} disabled={!data?.usdcTradeAddress}>
+          <Button size="small" onClick={copy} disabled={!data?.usdtTradeAddress}>
             Copy
           </Button>
           <Button size="small" type="primary" onClick={startEdit} disabled={!data || editing}>
@@ -151,23 +152,23 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
         <Typography.Text type="secondary">Loading addresses…</Typography.Text>
       ) : (
         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {!compact && data.usdcTradeAddress && (
+          {!compact && data.usdtTradeAddress && (
             <div style={{ padding: 8, background: '#fff', border: '1px solid #eee' }}>
-              <QRCodeSVG value={data.usdcTradeAddress} size={112} />
+              <QRCodeSVG value={data.usdtTradeAddress} size={112} />
             </div>
           )}
           <div style={{ flex: 1, minWidth: 260 }}>
             <Descriptions size="small" column={1}>
               <Descriptions.Item label="Trade address">
-                <Typography.Text style={{ wordBreak: 'break-all' }} data-testid="usdc-trade-address">
-                  {data.usdcTradeAddress || '—'}
+                <Typography.Text style={{ wordBreak: 'break-all' }} data-testid="usdt-trade-address">
+                  {data.usdtTradeAddress || '—'}
                 </Typography.Text>
               </Descriptions.Item>
               <Descriptions.Item label="Source">
                 {source && <Tag color={source.color}>{source.label}</Tag>}
               </Descriptions.Item>
               <Descriptions.Item label="Validation">
-                <ValidationTag validation={data.validationStatus.usdcTradeAddress} />
+                <ValidationTag validation={data.validationStatus.usdtTradeAddress} />
               </Descriptions.Item>
               <Descriptions.Item label="Last updated">
                 {data.updatedAt ? new Date(data.updatedAt).toLocaleString() : 'never'}
@@ -193,8 +194,8 @@ export function TradeAddressPanel({ compact = false }: { compact?: boolean }) {
         <Form form={form} layout="vertical" size="small" onFinish={submit} style={{ marginTop: 12 }}>
           <Alert type="warning" showIcon message={ADDRESS_WARNING} style={{ marginBottom: 12 }} />
           <Form.Item
-            name="usdcTradeAddress"
-            label="USDC Tron trade address (TRC20)"
+            name="usdtTradeAddress"
+            label={`${BASE_CURRENCY_LABEL} Tron trade address (TRC20)`}
             validateTrigger="onBlur"
             rules={[tronRule(false)]}
           >

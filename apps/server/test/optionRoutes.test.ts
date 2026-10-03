@@ -86,7 +86,7 @@ describe('option routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/options/open',
-      payload: { asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 60 },
+      payload: { asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 60 },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
@@ -97,10 +97,10 @@ describe('option routes', () => {
 
   it('rejects invalid payloads with 400', async () => {
     const cases = [
-      { asset: 'BTC/USDC', side: 'SIDEWAYS', stakeUsd: 10, durationSeconds: 60 },
-      { asset: 'BTC/USDC', side: 'CALL', stakeUsd: 0, durationSeconds: 60 },
-      { asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 7 },
-      { asset: 'BTC/USDC', side: 'CALL', stakeUsd: 150, durationSeconds: 60 },
+      { asset: 'BTC/USDT', side: 'SIDEWAYS', stakeUsd: 10, durationSeconds: 60 },
+      { asset: 'BTC/USDT', side: 'CALL', stakeUsd: 0, durationSeconds: 60 },
+      { asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 7 },
+      { asset: 'BTC/USDT', side: 'CALL', stakeUsd: 150, durationSeconds: 60 },
     ];
     for (const payload of cases) {
       const res = await app.inject({

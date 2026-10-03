@@ -6,6 +6,8 @@ import { api } from '../api/client';
 import type { RiskSettingsUpdate } from '../api/client';
 import { emitUiEvent } from '../api/events';
 
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
+
 export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } = {}) {
   const queryClient = useQueryClient();
   const [form] = Form.useForm<RiskSettingsUpdate>();
@@ -143,7 +145,7 @@ export function SettingsPage({ onOpenClassic }: { onOpenClassic?: () => void } =
           type="info"
           showIcon
           message="Classic Options trading has moved"
-          description="Start/Stop, stake limits, the default duration (1–60 minutes) and loss limits are now on the Classic Options page, together with the USDC Tron trade address."
+          description={`Start/Stop, stake limits, the default duration (1–60 minutes) and loss limits are now on the Classic Options page, together with the ${BASE_CURRENCY_LABEL} Tron trade address.`}
           action={
             onOpenClassic ? (
               <Button size="small" type="primary" onClick={onOpenClassic}>

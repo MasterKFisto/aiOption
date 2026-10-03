@@ -55,7 +55,7 @@ primary network control; everything else is defense in depth.
 |---|---|---|
 | No application authentication | Anyone with the SSH tunnel (or local access to the ECS host) can operate the app | Personal single-user app; SSH is the auth boundary. Do not expose 8080 beyond loopback. |
 | In TESTNET, simulated deposits mint internal balance | Cosmetic only — the internal ledger is test funds; no on-chain value | Gated off in LIVE; documented in the UI banner. |
-| Deposit detection trusts TronGrid data | A malicious RPC could fake USDC credits | Credits only count toward a test ledger in TESTNET; for LIVE use your own node or a trusted provider + confirmations (12). |
+| Deposit detection trusts TronGrid data | A malicious RPC could fake USDT credits | Credits only count toward a test ledger in TESTNET; for LIVE use your own node or a trusted provider + confirmations (12). |
 | SQLite on a single disk | Host loss = data loss | Nightly OSS backup (deploy/ecs/backup-to-oss.md), pre-reset backups. |
 | Unpatched base image | Container escape (low) | Rebuild regularly (`deploy.sh` rebuilds), unattended host upgrades, non-root runtime. |
 | `.env` on the host | Key material at rest | Host disk encryption; 0600 permissions; never committed (git-ignored). |

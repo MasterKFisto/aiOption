@@ -56,7 +56,7 @@ export class PaperExecutionAdapter implements ExecutionAdapter {
     options: { feeRate?: number; feeCurrency?: string } = {},
   ) {
     this.feeRate = options.feeRate ?? DEFAULT_FEE_RATE;
-    this.feeCurrency = options.feeCurrency ?? 'USDC';
+    this.feeCurrency = options.feeCurrency ?? 'USDT';
   }
 
   async placeOrder(params: PlaceOrderParams): Promise<OrderResult> {

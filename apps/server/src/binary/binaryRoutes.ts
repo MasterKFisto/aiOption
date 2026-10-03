@@ -10,7 +10,7 @@ import { binaryService } from './binaryService.js';
 import type { BinaryService } from './binaryService.js';
 
 const openSchema = z.object({
-  asset: z.string().trim().min(1).default('BTC/USDC'),
+  asset: z.string().trim().min(1).default('BTC/USDT'),
   direction: z.enum(['UP', 'DOWN']),
   stakeUsd: z.coerce.number().positive(),
   durationSeconds: z.coerce.number().int().positive(),
@@ -19,7 +19,7 @@ const openSchema = z.object({
 
 const sessionSettingsSchema = z.object({
   gainLimitEnabled: z.boolean().optional(),
-  maxSessionGainUsdc: z.coerce.number().positive().optional(),
+  maxSessionGainUsdt: z.coerce.number().positive().optional(),
   maxSessionGainPercent: z.coerce.number().min(0).max(100).optional(),
 });
 
@@ -112,8 +112,8 @@ export async function binaryRoutes(
       if (parsed.data.gainLimitEnabled !== undefined) {
         patch.gainLimitEnabled = parsed.data.gainLimitEnabled;
       }
-      if (parsed.data.maxSessionGainUsdc !== undefined) {
-        patch.maxSessionGainUsdc = parsed.data.maxSessionGainUsdc;
+      if (parsed.data.maxSessionGainUsdt !== undefined) {
+        patch.maxSessionGainUsdt = parsed.data.maxSessionGainUsdt;
       }
       if (parsed.data.maxSessionGainPercent !== undefined) {
         patch.maxSessionGainPercent = parsed.data.maxSessionGainPercent;

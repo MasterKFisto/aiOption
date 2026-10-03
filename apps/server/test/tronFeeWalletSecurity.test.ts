@@ -61,7 +61,7 @@ describe('TRX fee wallet security (non-paper, non-simulated)', () => {
     expect(info.feeWalletAddress).toBe(CONFIGURED_FEE_WALLET);
     expect(info.sameAddressAsDeposit).toBe(false);
     expect(info.acceptTrxDeposits).toBe(false);
-    expect(info.warning).toContain('not credited as USDC trading balance');
+    expect(info.warning).toContain('not credited as USDT trading balance');
   });
 
   it('reports insufficient reserve with a warning when TRX deposits are disabled', () => {

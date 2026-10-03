@@ -42,7 +42,7 @@ beforeEach(() => {
   connection
     .getDb()
     .prepare(
-      "DELETE FROM app_settings WHERE key IN ('usdc_trade_address','withdrawal_destination_address','trx_fee_wallet_address')",
+      "DELETE FROM app_settings WHERE key IN ('usdt_trade_address','withdrawal_destination_address','trx_fee_wallet_address')",
     )
     .run();
 });
@@ -67,7 +67,7 @@ describe('Tron address validation (POST /api/wallet/addresses/validate)', () => 
       ['TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6', /34 characters/],
       ['TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t', /Base58/],
       [BAD_CHECKSUM, /checksum/],
-      ['TSimulatedAiOptionDepositAddressUSDC1', /34 characters/],
+      ['TSimulatedAiOptionDepositAddressUSDT1', /34 characters/],
     ];
     for (const [address, reason] of cases) {
       const body = (await validate(address)).json();
@@ -85,23 +85,23 @@ describe('Tron address validation (POST /api/wallet/addresses/validate)', () => 
 describe('GET/PUT /api/wallet/addresses', () => {
   it('defaults to the simulated placeholder (source SIMULATED, flagged as not valid)', async () => {
     const body = await get();
-    expect(body.usdcTradeAddressSource).toBe('SIMULATED');
-    expect(body.validationStatus.usdcTradeAddress.valid).toBe(false);
+    expect(body.usdtTradeAddressSource).toBe('SIMULATED');
+    expect(body.validationStatus.usdtTradeAddress.valid).toBe(false);
     expect(body.withdrawalDestinationAddressSource).toBe('NOT_SET');
     expect(body.updatedAt).toBeNull();
   });
 
   it('saves a valid trade address and deposit / tron status / fee info use it', async () => {
-    const res = await put({ usdcTradeAddress: `  ${USDT_CONTRACT}  ` });
+    const res = await put({ usdtTradeAddress: `  ${USDT_CONTRACT}  ` });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
-      usdcTradeAddress: USDT_CONTRACT,
-      usdcTradeAddressSource: 'DATABASE',
+      usdtTradeAddress: USDT_CONTRACT,
+      usdtTradeAddressSource: 'DATABASE',
       effectiveWithdrawalDestinationAddress: USDT_CONTRACT,
     });
-    expect(res.json().validationStatus.usdcTradeAddress.valid).toBe(true);
+    expect(res.json().validationStatus.usdtTradeAddress.valid).toBe(true);
     expect(res.json().updatedAt).toBeTruthy();
-    expect(repo.getAppSetting('usdc_trade_address')?.value).toBe(USDT_CONTRACT);
+    expect(repo.getAppSetting('usdt_trade_address')?.value).toBe(USDT_CONTRACT);
 
     const deposit = (await app.inject({ method: 'GET', url: '/api/deposits/info' })).json();
     expect(deposit).toMatchObject({ address: USDT_CONTRACT, addressSource: 'DATABASE' });
@@ -109,14 +109,14 @@ describe('GET/PUT /api/wallet/addresses', () => {
     expect(tron).toMatchObject({ depositAddress: USDT_CONTRACT, depositAddressSource: 'DATABASE' });
 
     expect(repo.listSettingsAudit(5)[0]).toMatchObject({
-      key: 'usdc_trade_address',
+      key: 'usdt_trade_address',
       newValue: USDT_CONTRACT,
     });
   });
 
   it('withdrawal destination and TRX fee wallet can be set and cleared', async () => {
     await put({
-      usdcTradeAddress: USDT_CONTRACT,
+      usdtTradeAddress: USDT_CONTRACT,
       withdrawalDestinationAddress: OTHER_VALID,
       trxFeeWalletAddress: OTHER_VALID,
     });
@@ -133,20 +133,20 @@ describe('GET/PUT /api/wallet/addresses', () => {
   });
 
   it('rejects invalid addresses atomically (nothing is saved)', async () => {
-    const res = await put({ usdcTradeAddress: OTHER_VALID, trxFeeWalletAddress: BAD_CHECKSUM });
+    const res = await put({ usdtTradeAddress: OTHER_VALID, trxFeeWalletAddress: BAD_CHECKSUM });
     expect(res.statusCode).toBe(400);
     expect(res.json().field).toBe('trxFeeWalletAddress');
     expect(res.json().reason).toMatch(/checksum/);
-    expect(repo.getAppSetting('usdc_trade_address')).toBeNull();
+    expect(repo.getAppSetting('usdt_trade_address')).toBeNull();
   });
 
   it('rejects unknown fields, empty bodies, non-strings and injection attempts', async () => {
     const cases: unknown[] = [
       {},
-      { usdcTradeAddress: 123 },
+      { usdtTradeAddress: 123 },
       { privateKey: 'abc' },
-      { usdcTradeAddress: "T'; DROP TABLE app_settings;--aaaaaaaaaaaaaaaa" },
-      { usdcTradeAddress: '<script>alert(1)</script>' },
+      { usdtTradeAddress: "T'; DROP TABLE app_settings;--aaaaaaaaaaaaaaaa" },
+      { usdtTradeAddress: '<script>alert(1)</script>' },
     ];
     for (const payload of cases) {
       expect((await put(payload)).statusCode, JSON.stringify(payload)).toBe(400);
@@ -157,7 +157,7 @@ describe('GET/PUT /api/wallet/addresses', () => {
   });
 
   it('never exposes secrets in address responses', async () => {
-    await put({ usdcTradeAddress: USDT_CONTRACT });
+    await put({ usdtTradeAddress: USDT_CONTRACT });
     const text = JSON.stringify(await get());
     expect(text).not.toMatch(/private|secret|mnemonic|seed/i);
   });

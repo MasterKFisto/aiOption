@@ -164,7 +164,7 @@ describe('TradingLoop', () => {
     expect(executedDecision?.executed).toBe(true);
     expect(executedDecision?.positionId).toBe(position.id);
 
-    // wallet: EXACTLY the 10 USDC stake is locked (no fee drift)
+    // wallet: EXACTLY the 10 USDT stake is locked (no fee drift)
     const account = repo.getAccount();
     expect(account.lockedBalance).toBe(10);
     expect(account.cashBalance).toBe(990);
@@ -189,7 +189,7 @@ describe('TradingLoop', () => {
     });
     const result = await loop.runOnce();
     expect(result.executed).toHaveLength(0);
-    expect(result.skipped.some((s) => /BTC\/USDC only/.test(s.reason))).toBe(true);
+    expect(result.skipped.some((s) => /BTC\/USDT only/.test(s.reason))).toBe(true);
     expect(repo.getAccount().lockedBalance).toBe(0);
   });
 
@@ -232,7 +232,7 @@ describe('TradingLoop', () => {
     expect(repo.getAccount().tradingEnabled).toBe(false);
     expect(repo.listPositions('OPEN')).toHaveLength(0);
     expect(repo.listPositions('CLOSED').length).toBeGreaterThan(0);
-    // Exactly the 10 USDC stake is released back to cash.
+    // Exactly the 10 USDT stake is released back to cash.
     expect(repo.getAccount().lockedBalance).toBe(0);
     const types = repo.listRiskEvents().map((e) => e.type);
     expect(types.filter((t) => t === 'LOSS_LIMIT_DAILY')).toHaveLength(1);

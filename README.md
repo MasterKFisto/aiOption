@@ -153,7 +153,7 @@ Deterministic, simulated market data and a rule-based signal engine:
   momentum over the last N candles; positive momentum + volatility below
   threshold → BULLISH, negative → BEARISH, otherwise NEUTRAL. Every decision
   (signal, confidence, expected return, proposed trade size — strictly
-  `FIXED_TRADE_SIZE_USD` = $10 USDC) is persisted to `ai_decisions`.
+  `FIXED_TRADE_SIZE_USD` = $10 USDT) is persisted to `ai_decisions`.
 
 ```ts
 // usage inside the container (e.g. via `pnpm dev:server` / scripts)
@@ -236,12 +236,12 @@ This is a **personal, local-only** application — protect it accordingly:
   app. Never expose these ports publicly.
 - All SQL is parameterized; API inputs are Zod-validated and value-clamped.
 
-## Real-time UI & Tron USDC (Phase 6.1)
+## Real-time UI & Tron USDT (Phase 6.1)
 
 **Live market data** (display-only; the trading loop keeps using the
 deterministic simulated feed): the backend polls a public source (Coinbase)
-every 3s (`MARKET_POLL_INTERVAL_MS`) for `MARKET_SYMBOL` (default BTC/USDC)
-and falls back to `FALLBACK_MARKET_SYMBOL` (BTC/USDT) when the pair is
+every 3s (`MARKET_POLL_INTERVAL_MS`) for `MARKET_SYMBOL` (default BTC/USDT)
+and falls back to `FALLBACK_MARKET_SYMBOL` (BTC/USD) when the pair is
 unavailable — the UI labels the source and symbol accordingly.
 
 ```bash
@@ -253,7 +253,7 @@ curl 'http://localhost:8080/api/market/candles?interval=1m&limit=300'
 withdrawal change to the dashboard (`GET /api/events`); TanStack Query
 polling (3s) remains as a fallback.
 
-**Tron USDC (TRC20)** — deposits and withdrawals are fixed to Tron/USDC/TRC20:
+**Tron USDT (TRC20)** — deposits and withdrawals are fixed to Tron/USDT/TRC20:
 
 ```bash
 curl http://localhost:8080/api/deposits/info        # address, network, sync status
@@ -265,9 +265,9 @@ curl -X POST http://localhost:8080/api/withdrawals  -H 'Content-Type: applicatio
 ```
 
 - `TRON_MODE=SIMULATED` by default: nothing is ever broadcast; simulated
-  deposits/withdrawals are recorded as network=TRON, asset=USDC, TRC20.
+  deposits/withdrawals are recorded as network=TRON, asset=USDT, TRC20.
 - Live modes (SHASTA/NILE/MAINNET) require explicit configuration
-  (`TRON_DEPOSIT_ADDRESS`, `TRON_USDC_CONTRACT_ADDRESS`, optional
+  (`TRON_DEPOSIT_ADDRESS`, `TRON_USDT_CONTRACT_ADDRESS`, optional
   `TRON_GRID_API_KEY`); withdrawals stay REQUESTED (never broadcast) unless
   `ENABLE_LIVE_TRON_WITHDRAWALS=true` AND the server-side
   `TRON_HOT_WALLET_PRIVATE_KEY` is configured. The private key is never
@@ -285,7 +285,7 @@ localStorage).
 
 Short-duration (5s/10s) binary contracts settled **internally** against the
 backend market price feed — never on-chain, no real exchange orders.
-Deposits/withdrawals remain Tron USDC (TRC20). Toggle between **Classic
+Deposits/withdrawals remain Tron USDT (TRC20). Toggle between **Classic
 Options** and **Binary Options** tabs in the UI.
 
 - `apps/server/src/binary/` — service, repository (atomic settlement),
@@ -347,7 +347,7 @@ risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
   `unrealizedPnl`. Ledger: `OPTION_STAKE_LOCKED` / `OPTION_SETTLE_WIN` /
   `OPTION_SETTLE_LOSS` / `OPTION_SETTLE_REFUND`; events `OPTION_EXPIRED_SETTLED`,
   `OPTION_EXPIRED_REFUNDED`, `OPTION_SETTLEMENT_PRICE_STALE`.
-- **Limits**: max option stake 100 USDC (`MAX_OPTION_STAKE_USD`), daily loss
+- **Limits**: max option stake 100 USDT (`MAX_OPTION_STAKE_USD`), daily loss
   limit default 40% (`DAILY_LOSS_LIMIT_PERCENT`, UI allows 0–80%; the migration
   only moves accounts still on the old 5% default).
 - **Tron visibility**: sidebar indicator (Simulated/Shasta/Nile/Mainnet ·
@@ -355,7 +355,7 @@ risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
   `GET /api/tron/status` · `GET /api/tron/health` (persists checks to
   `tron_status_checks`) · `GET /api/tron/fee-estimate`. No secrets are exposed.
 - **Withdrawal fees**: `TRON_WITHDRAWAL_FEE_POLICY` (HOT_WALLET_PAYS /
-  DEDUCT_USDC_FROM_WITHDRAWAL / BLOCK_IF_INSUFFICIENT), `TRON_WITHDRAWAL_FEE_ESTIMATE_TRX`,
+  DEDUCT_USDT_FROM_WITHDRAWAL / BLOCK_IF_INSUFFICIENT), `TRON_WITHDRAWAL_FEE_ESTIMATE_TRX`,
   `TRON_USD_TRX_PRICE`, `TRON_MIN_TRX_BALANCE_FOR_WITHDRAWAL`,
   `ALLOW_WITHDRAWAL_WHEN_FEE_INSUFFICIENT`. The withdrawal modal shows the fee in
   TRX/USD, the payer, hot-wallet resources, and blocks (or marks PENDING_FEE)
@@ -378,7 +378,7 @@ risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
   at the top of the Classic Options, Binary Options and Wallet Records pages.
   `GET /api/account` returns the unified fields; updates via SSE + 2s polling.
 - **Binary Max Session Gain**: `BINARY_SESSION_GAIN_LIMIT_ENABLED`,
-  `BINARY_MAX_SESSION_GAIN_USDC=50`, `BINARY_MAX_SESSION_GAIN_PERCENT=0`,
+  `BINARY_MAX_SESSION_GAIN_USDT=50`, `BINARY_MAX_SESSION_GAIN_PERCENT=0`,
   `BINARY_SESSION_RESET_ON_START=true`. Manual + AI binary settlements feed a
   combined `binary_session_stats` session; reaching the limit blocks new
   manual contracts, stops AI auto-execution
@@ -386,7 +386,7 @@ risk chain), `binaryAiRepository.ts`, `binaryAiScheduler.ts`,
   reset/keep/withdraw banner. Endpoints: `GET /api/binary/session-stats`,
   `PUT /api/binary/session-settings`, `POST /api/binary/session-reset`.
 - **TRX fee wallet**: TRX deposits fund a separate network-fee reserve
-  (never credited as USDC trading balance). `tron_fee_deposits` records +
+  (never credited as USDT trading balance). `tron_fee_deposits` records +
   `GET /api/tron/fee-deposit-info` / `fee-status` / `fee-deposits` and
   `POST /api/tron/simulate-trx-deposit` (paper/simulated only). The fee
   reserve feeds the withdrawal fee gate and wallet records
@@ -419,7 +419,7 @@ saved addresses, then re-seeds a clean account (trading disabled):
 
 ```bash
 docker compose run --rm dev sh -c 'cd /app && UAT_RESET_CONFIRM=YES \
-  UAT_RESET_STARTING_BALANCE_USDC=1000 pnpm --filter @aioption/server reset:uat'
+  UAT_RESET_STARTING_BALANCE_USDT=1000 pnpm --filter @aioption/server reset:uat'
 docker compose run --rm dev sh -c 'cd /app && pnpm --filter @aioption/server verify:uat'
 ```
 
@@ -442,6 +442,31 @@ cp .env.testnet.example .env
 docker compose -f docker-compose.prod.yml up -d --build
 ssh -i key.pem -L 8080:localhost:8080 user@ECS_IP   # then open http://localhost:8080
 ```
+
+## Phase 7.1 — base currency USDT (USDC sunset on Tron)
+
+USDC is no longer supported on the Tron network, so the base (accounting)
+currency is **USDT (TRC20, 6 decimals — unchanged)**:
+
+- `BASE_CURRENCY=USDT` is enforced at startup: `USDC` aborts with a clear
+  deprecation error; any other value is rejected. The contract env var is
+  `TRON_USDT_CONTRACT_ADDRESS` (the old `TRON_USDC_CONTRACT_ADDRESS` is gone).
+- A startup migration converts existing rows in place (`account`,
+  `deposits`, `withdrawals`, `transactions`, `positions`,
+  `binary_contracts`, `ai_binary_decisions`; settings key
+  `usdc_trade_address` → `usdt_trade_address`). Amounts, timestamps and
+  statuses are untouched and the migration is idempotent. The TRX fee reserve
+  stays TRX.
+- Shared constants live in `packages/shared/src/currency.ts`
+  (`BASE_CURRENCY_LABEL`, `BASE_CURRENCY_DECIMALS`, `TESTNET_TOKEN_SYMBOL`,
+  `TESTNET_TOKEN_NAME`, `TESTNET_ASSET_NOTICE`, `TRON_DEPOSIT_WARNING`) and
+  are imported by both backend and frontend.
+- Testnet: there is no official USDT on Shasta/Nile — a test token stands in
+  (labelled **USDT-TEST**, "Tether USD Test", 6 decimals). The UI marks it:
+  "Testnet asset: USDT-TEST. This is a test token with no real value."
+- No contract address is hardcoded. For reference only, the commonly known
+  mainnet USDT TRC20 contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t` —
+  independently verify it before any mainnet use.
 
 ## TypeScript
 

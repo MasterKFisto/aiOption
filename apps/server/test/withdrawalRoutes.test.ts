@@ -86,7 +86,7 @@ describe('withdrawal routes (simulated Tron)', () => {
     const body = res.json();
     expect(body.withdrawal.status).toBe('SIMULATED');
     expect(body.withdrawal.network).toBe('TRON');
-    expect(body.withdrawal.asset).toBe('USDC');
+    expect(body.withdrawal.asset).toBe('USDT');
     expect(body.withdrawal.tokenStandard).toBe('TRC20');
     expect(body.withdrawal.destinationAddress).toBe(TRON_ADDRESS);
     expect(body.withdrawal.txid).toMatch(/^sim-/);

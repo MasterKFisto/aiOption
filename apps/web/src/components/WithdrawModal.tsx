@@ -1,4 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 import {
   Alert,
   Button,
@@ -30,7 +32,7 @@ interface FormValues {
 }
 
 /**
- * Tron USDC (TRC20) withdrawal flow. Network/asset/token standard are fixed.
+ * Tron USDT (TRC20) withdrawal flow. Network/asset/token standard are fixed.
  * Requires explicit user confirmation before submitting.
  */
 export function WithdrawModal({
@@ -54,7 +56,7 @@ export function WithdrawModal({
   });
 
   // Phase 6.5.1: default destination = saved withdrawal address, else the
-  // user-provided USDC trade address (never the simulated placeholder).
+  // user-provided USDT trade address (never the simulated placeholder).
   const { data: addresses } = useQuery({
     queryKey: ['wallet-addresses'],
     queryFn: api.walletAddresses,
@@ -63,8 +65,8 @@ export function WithdrawModal({
   const defaultDestination =
     addresses &&
     (addresses.withdrawalDestinationAddressSource === 'DATABASE' ||
-      addresses.usdcTradeAddressSource === 'DATABASE' ||
-      addresses.usdcTradeAddressSource === 'ENVIRONMENT')
+      addresses.usdtTradeAddressSource === 'DATABASE' ||
+      addresses.usdtTradeAddressSource === 'ENVIRONMENT')
       ? addresses.effectiveWithdrawalDestinationAddress
       : '';
 
@@ -124,7 +126,7 @@ export function WithdrawModal({
   };
 
   return (
-    <Modal title="Withdraw USDC" open={open} onCancel={onClose} footer={null} width={560}>
+    <Modal title={`Withdraw ${BASE_CURRENCY_LABEL}`} open={open} onCancel={onClose} footer={null} width={560}>
       {contextHolder}
       {result ? (
         <Result
@@ -132,7 +134,7 @@ export function WithdrawModal({
           title={`Withdrawal ${result.status}`}
           subTitle={
             <>
-              ${result.amount.toFixed(2)} USDC → {result.destinationAddress.slice(0, 10)}…
+              ${result.amount.toFixed(2)} {BASE_CURRENCY_LABEL} → {result.destinationAddress.slice(0, 10)}…
               {result.txid && (
                 <>
                   <br />
@@ -146,7 +148,7 @@ export function WithdrawModal({
       ) : (
         <Form form={form} layout="vertical" onFinish={submit} initialValues={{ confirmed: false }}>
           <Descriptions column={2} size="small" style={{ marginBottom: 16 }}>
-            <Descriptions.Item label="Asset">USDC</Descriptions.Item>
+            <Descriptions.Item label="Asset">{BASE_CURRENCY_LABEL}</Descriptions.Item>
             <Descriptions.Item label="Network">Tron (fixed)</Descriptions.Item>
             <Descriptions.Item label="Token standard">TRC20</Descriptions.Item>
             <Descriptions.Item label="Available">${available.toFixed(2)}</Descriptions.Item>
@@ -203,7 +205,7 @@ export function WithdrawModal({
                   {feeBlocked ? (
                     <div>
                       <b>Fee resources insufficient.</b> Fund the hot wallet with TRX or energy
-                      before withdrawing USDC.
+                      before withdrawing {BASE_CURRENCY_LABEL}.
                       <div style={{ marginTop: 8 }}>
                         <Button
                           size="small"

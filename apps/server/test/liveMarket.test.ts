@@ -25,8 +25,8 @@ class StubSource implements MarketDataSource {
 
 function makeService(source: StubSource): LiveMarketDataService {
   return new LiveMarketDataService(source, {
-    symbol: 'BTC/USDC',
-    fallbackSymbol: 'BTC/USDT',
+    symbol: 'BTC/USDT',
+    fallbackSymbol: 'BTC/USD',
     pollIntervalMs: 3000,
   });
 }
@@ -39,25 +39,25 @@ describe('LiveMarketDataService', () => {
 
     expect(service.getStatus()).toBe('connected');
     const ticker = service.getTicker();
-    expect(ticker?.symbol).toBe('BTC/USDC');
+    expect(ticker?.symbol).toBe('BTC/USDT');
     expect(ticker?.usingFallback).toBe(false);
     expect(ticker?.lastPrice).toBe(67000);
     expect(ticker?.priceChangePercent24h).toBeCloseTo((2000 / 65000) * 100, 6);
     expect(ticker?.source).toBe('COINBASE');
     expect(ticker?.lastUpdatedAt).toBeTruthy();
-    expect(source.statsCalls).toEqual(['BTC/USDC']);
+    expect(source.statsCalls).toEqual(['BTC/USDT']);
   });
 
   it('falls back to the fallback symbol when the primary is unavailable', async () => {
     const source = new StubSource();
-    source.failSymbols.add('BTC/USDC');
+    source.failSymbols.add('BTC/USDT');
     const service = makeService(source);
     await service.refresh();
 
     expect(service.getStatus()).toBe('connected');
     const ticker = service.getTicker();
-    expect(ticker?.symbol).toBe('BTC/USDT');
-    expect(ticker?.requestedSymbol).toBe('BTC/USDC');
+    expect(ticker?.symbol).toBe('BTC/USD');
+    expect(ticker?.requestedSymbol).toBe('BTC/USDT');
     expect(ticker?.usingFallback).toBe(true);
   });
 
@@ -67,8 +67,8 @@ describe('LiveMarketDataService', () => {
     await service.refresh();
     const good = service.getTicker();
 
-    source.failSymbols.add('BTC/USDC');
     source.failSymbols.add('BTC/USDT');
+    source.failSymbols.add('BTC/USD');
     await service.refresh();
 
     expect(service.getStatus()).toBe('error');
@@ -78,16 +78,16 @@ describe('LiveMarketDataService', () => {
   it('fetches candles with the correct granularity per interval', async () => {
     const source = new StubSource();
     const service = makeService(source);
-    await service.refresh(); // active symbol = BTC/USDC
+    await service.refresh(); // active symbol = BTC/USDT
 
     await service.getCandles('1m', 100);
     await service.getCandles('5m', 50);
     await service.getCandles('1h', 10);
 
     expect(source.candleCalls).toEqual([
-      { symbol: 'BTC/USDC', granularity: 60, limit: 100 },
-      { symbol: 'BTC/USDC', granularity: 300, limit: 50 },
-      { symbol: 'BTC/USDC', granularity: 3600, limit: 10 },
+      { symbol: 'BTC/USDT', granularity: 60, limit: 100 },
+      { symbol: 'BTC/USDT', granularity: 300, limit: 50 },
+      { symbol: 'BTC/USDT', granularity: 3600, limit: 10 },
     ]);
   });
 

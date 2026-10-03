@@ -81,7 +81,7 @@ describe('RiskEngine.evaluate', () => {
     repo.updateAccount({ tradingEnabled: true, equity: 1000, startingEquity: 1000 });
     const verdict = risk.evaluate(decision({ proposedTradeSizeUsd: 999 }));
     expect(verdict.approved).toBe(false);
-    expect(verdict.reason).toMatch(/exceeds the 100 USDC maximum stake/);
+    expect(verdict.reason).toMatch(/exceeds the 100 USDT maximum stake/);
   });
 
   it('rejects trade sizes that do not match the fixed limit', () => {

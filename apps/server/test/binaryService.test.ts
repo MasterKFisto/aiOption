@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 const openInput = (overrides: Record<string, unknown> = {}) => ({
-  asset: 'BTC/USDC',
+  asset: 'BTC/USDT',
   direction: 'UP' as const,
   stakeUsd: 10,
   durationSeconds: 5,
@@ -106,7 +106,7 @@ describe('BinaryService quotes and validation', () => {
 
   it('rejects invalid inputs', () => {
     expect(() => service.getQuote(10, 5, 0.42)).toThrow(/payout ratio/);
-    expect(() => service.openBinaryContract(openInput({ asset: 'ETH/USDC' }))).toThrow(/BTC\/USDC/);
+    expect(() => service.openBinaryContract(openInput({ asset: 'ETH/USDT' }))).toThrow(/BTC\/USDT/);
     expect(() => service.openBinaryContract(openInput({ direction: 'SIDEWAYS' }))).toThrow(/UP or DOWN/);
     expect(() => service.openBinaryContract(openInput({ stakeUsd: 0.5 }))).toThrow(/at least/);
     expect(() => service.openBinaryContract(openInput({ stakeUsd: 500 }))).toThrow(/at most/);

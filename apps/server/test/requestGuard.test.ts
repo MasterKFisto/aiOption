@@ -110,13 +110,13 @@ describe('CSRF guard', () => {
         method: 'PUT',
         url,
         headers: { origin: 'https://evil.example' },
-        payload: { usdcTradeAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
+        payload: { usdtTradeAddress: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t' },
       });
       expect(res.statusCode, url).toBe(403);
     }
     // Nothing changed.
     const addresses = (await app.inject({ method: 'GET', url: '/api/wallet/addresses' })).json();
-    expect(addresses.usdcTradeAddressSource).toBe('SIMULATED');
+    expect(addresses.usdtTradeAddressSource).toBe('SIMULATED');
   });
 
   it('blocks "null" origins and Sec-Fetch-Site: cross-site without Origin', async () => {

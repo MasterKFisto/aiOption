@@ -3,12 +3,12 @@
  *
  *   docker compose run --rm \
  *     -e UAT_RESET_CONFIRM=YES \
- *     -e UAT_RESET_STARTING_BALANCE_USDC=1000 \
+ *     -e UAT_RESET_STARTING_BALANCE_USDT=1000 \
  *     dev pnpm --filter server reset:uat
  *
  * Env:
  *   UAT_RESET_CONFIRM=YES                 required
- *   UAT_RESET_STARTING_BALANCE_USDC=1000  default 0
+ *   UAT_RESET_STARTING_BALANCE_USDT=1000  default 0
  *   UAT_RESET_ALLOW_LIVE=true             required only when MODE=LIVE
  *   UAT_RESET_BACKUP=false                skip the automatic pre-reset backup
  *   BACKUP_DIR=/app/backups               where the backup goes
@@ -28,12 +28,12 @@ function out(line: string): void {
 }
 
 async function main(): Promise<number> {
-  const startingBalanceUsdc = Number(process.env['UAT_RESET_STARTING_BALANCE_USDC'] ?? '0');
+  const startingBalanceUsdt = Number(process.env['UAT_RESET_STARTING_BALANCE_USDT'] ?? '0');
   const options = {
     mode: config.MODE,
     confirm: process.env['UAT_RESET_CONFIRM'],
     allowLive: process.env['UAT_RESET_ALLOW_LIVE'],
-    startingBalanceUsdc,
+    startingBalanceUsdt,
     defaults: {
       baseCurrency: config.BASE_CURRENCY,
       fixedTradeSizeUsd: config.FIXED_TRADE_SIZE_USD,
@@ -69,7 +69,7 @@ async function main(): Promise<number> {
 
   const result = runUatReset(getDb(), options);
   out(`cleared rows: ${JSON.stringify(result.clearedRows)}`);
-  const verification = verifyUatReset(getDb(), result.startingBalanceUsdc);
+  const verification = verifyUatReset(getDb(), result.startingBalanceUsdt);
   out(`row counts: ${JSON.stringify(verification.counts)}`);
   out(`app_settings: ${JSON.stringify(verification.settings)}`);
   closeDb();
@@ -78,7 +78,7 @@ async function main(): Promise<number> {
     out(`VERIFY FAILED:\n  - ${verification.problems.join('\n  - ')}`);
     return 1;
   }
-  out(`UAT RESET OK — starting balance ${result.startingBalanceUsdc} ${config.BASE_CURRENCY}, trading disabled`);
+  out(`UAT RESET OK — starting balance ${result.startingBalanceUsdt} ${config.BASE_CURRENCY}, trading disabled`);
   return 0;
 }
 

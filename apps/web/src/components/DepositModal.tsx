@@ -3,12 +3,18 @@ import { Alert, Button, Card, Descriptions, InputNumber, Modal, Spin, Typography
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
+import {
+  BASE_CURRENCY_LABEL,
+  TESTNET_ASSET_NOTICE,
+  TRON_DEPOSIT_WARNING,
+} from '@aioption/shared';
+
 import { api } from '../api/client';
 import { DepositHistoryTable } from './HistoryTables';
 
 /**
- * Tron USDC (TRC20) deposit flow. The network is fixed — the user cannot
- * select anything else. In paper/simulated mode a "Simulate Tron USDC
+ * Tron USDT (TRC20) deposit flow. The network is fixed — the user cannot
+ * select anything else. In paper/simulated mode a "Simulate Tron USDT
  * deposit" button is available for testing.
  */
 export function DepositModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -39,9 +45,10 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   const paperMode = !info || info.tronMode === 'SIMULATED';
+  const testnet = info?.tronMode === 'SHASTA' || info?.tronMode === 'NILE';
 
   return (
-    <Modal title="Deposit USDC" open={open} onCancel={onClose} footer={null} width={560}>
+    <Modal title={`Deposit ${BASE_CURRENCY_LABEL}`} open={open} onCancel={onClose} footer={null} width={560}>
       {contextHolder}
       {isPending || !info ? (
         <Spin />
@@ -50,14 +57,14 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
       ) : (
         <>
           <Descriptions column={1} size="small">
-            <Descriptions.Item label="Asset">USDC</Descriptions.Item>
+            <Descriptions.Item label="Asset">{BASE_CURRENCY_LABEL}</Descriptions.Item>
             <Descriptions.Item label="Network">Tron (fixed)</Descriptions.Item>
             <Descriptions.Item label="Token standard">TRC20</Descriptions.Item>
             <Descriptions.Item label="Deposit address">
               <Typography.Text copyable>{info.address}</Typography.Text>
               {info.addressSource === 'SIMULATED' && (
                 <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                  Simulated placeholder — set your own address under Classic Options → USDC Tron trade address.
+                  Simulated placeholder — set your own address under Classic Options → {BASE_CURRENCY_LABEL} Tron trade address.
                 </Typography.Text>
               )}
             </Descriptions.Item>
@@ -71,13 +78,21 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
           <Alert
             type="warning"
             showIcon
-            message="Only send USDC on the Tron network (TRC20) to this address."
-            description="Deposits sent on any other network or token standard may be permanently lost."
+            message={TRON_DEPOSIT_WARNING}
             style={{ marginBottom: 16 }}
           />
+          {testnet && (
+            <Alert
+              type="info"
+              showIcon
+              data-testid="testnet-asset-notice"
+              message={TESTNET_ASSET_NOTICE}
+              style={{ marginBottom: 16 }}
+            />
+          )}
 
           {paperMode && (
-            <Card size="small" title="Simulate Tron USDC deposit (testing)" style={{ marginBottom: 16 }}>
+            <Card size="small" title={`Simulate Tron ${BASE_CURRENCY_LABEL} deposit (testing)`} style={{ marginBottom: 16 }}>
               <InputNumber
                 min={0.01}
                 value={simulateAmount}
@@ -89,10 +104,10 @@ export function DepositModal({ open, onClose }: { open: boolean; onClose: () => 
                 loading={simulateMutation.isPending}
                 onClick={() => simulateMutation.mutate(simulateAmount)}
               >
-                Simulate Tron USDC deposit
+                Simulate Tron {BASE_CURRENCY_LABEL} deposit
               </Button>
               <Typography.Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
-                Simulated deposits are recorded as network=TRON, asset=USDC, TRC20.
+                Simulated deposits are recorded as network=TRON, asset={BASE_CURRENCY_LABEL}, TRC20.
               </Typography.Paragraph>
             </Card>
           )}

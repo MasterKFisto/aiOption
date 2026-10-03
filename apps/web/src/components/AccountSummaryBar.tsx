@@ -2,6 +2,8 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { Card, Col, Row, Statistic, Tag, Tooltip, Typography } from 'antd';
 
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
+
 import { api } from '../api/client';
 
 const usd = (value: number): number => Math.round(value * 100) / 100;
@@ -111,7 +113,7 @@ export function AccountSummaryBar() {
             }
             value={usd(data.openBinaryExposure ?? 0)}
             precision={2}
-            suffix={` USDC (${data.openBinaryCount ?? 0} open)`}
+            suffix={` ${BASE_CURRENCY_LABEL} (${data.openBinaryCount ?? 0} open)`}
           />
         </Col>
         {estimatedEnabled && (

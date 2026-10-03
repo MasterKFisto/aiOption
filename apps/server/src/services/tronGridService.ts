@@ -2,9 +2,9 @@ import type { TronMode } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { resolveUsdcTradeAddress } from './appSettings.js';
+import { resolveUsdtTradeAddress } from './appSettings.js';
 import type {
-  IncomingUsdcTransfer,
+  IncomingUsdtTransfer,
   TransactionStatusResult,
   TronService,
   WithdrawalBroadcastResult,
@@ -104,20 +104,20 @@ export class TronGridTronService implements TronService {
 
   /** DB-stored trade address (Phase 6.5.1) or TRON_DEPOSIT_ADDRESS. */
   async getDepositAddress(): Promise<string> {
-    const resolved = resolveUsdcTradeAddress();
+    const resolved = resolveUsdtTradeAddress();
     if (resolved.source !== 'DATABASE' && resolved.source !== 'ENVIRONMENT') {
       throw new Error(
-        'TRON_DEPOSIT_ADDRESS is not configured for live Tron mode — set it in the environment or save a USDC trade address in the UI',
+        'TRON_DEPOSIT_ADDRESS is not configured for live Tron mode — set it in the environment or save a USDT trade address in the UI',
       );
     }
     return resolved.address;
   }
 
-  async getIncomingUsdcTransfers(): Promise<IncomingUsdcTransfer[]> {
+  async getIncomingUsdtTransfers(): Promise<IncomingUsdtTransfer[]> {
     const address = await this.getDepositAddress();
-    const contract = config.TRON_USDC_CONTRACT_ADDRESS;
+    const contract = config.TRON_USDT_CONTRACT_ADDRESS;
     if (!contract) {
-      throw new Error('TRON_USDC_CONTRACT_ADDRESS is not configured for live Tron mode');
+      throw new Error('TRON_USDT_CONTRACT_ADDRESS is not configured for live Tron mode');
     }
     const url =
       `${this.baseUrl}/v1/accounts/${address}/transactions/trc20` +
@@ -141,15 +141,15 @@ export class TronGridTronService implements TronService {
         txid: t.transaction_id,
         fromAddress: t.from,
         toAddress: t.to,
-        amountUsdc: Number(t.value) / 1e6,
+        amountUsdt: Number(t.value) / 1e6,
         confirmations: 0,
         blockTimestamp: t.block_timestamp,
       }));
   }
 
-  async sendUsdcWithdrawal(params: {
+  async sendUsdtWithdrawal(params: {
     destinationAddress: string;
-    amountUsdc: number;
+    amountUsdt: number;
   }): Promise<WithdrawalBroadcastResult> {
     if (!config.ENABLE_LIVE_TRON_WITHDRAWALS) {
       throw new Error('live Tron withdrawals are disabled');
@@ -158,9 +158,9 @@ export class TronGridTronService implements TronService {
     if (!privateKey) {
       throw new Error('TRON_HOT_WALLET_PRIVATE_KEY is not configured');
     }
-    const contract = config.TRON_USDC_CONTRACT_ADDRESS;
+    const contract = config.TRON_USDT_CONTRACT_ADDRESS;
     if (!contract) {
-      throw new Error('TRON_USDC_CONTRACT_ADDRESS is not configured');
+      throw new Error('TRON_USDT_CONTRACT_ADDRESS is not configured');
     }
 
     // Lazy import: tronweb only loads when real withdrawals are enabled.
@@ -170,13 +170,13 @@ export class TronGridTronService implements TronService {
       privateKey,
       headers: this.headers(),
     });
-    const usdc = await tronWeb.contract().at(contract);
-    const amountSun = Math.round(params.amountUsdc * 1e6);
-    // USDC TRC20 transfer; feeLimit covers energy/bandwidth (wallet must hold TRX).
-    const result = (await usdc.transfer(params.destinationAddress, amountSun).send({
+    const usdt = await tronWeb.contract().at(contract);
+    const amountSun = Math.round(params.amountUsdt * 1e6);
+    // USDT TRC20 transfer; feeLimit covers energy/bandwidth (wallet must hold TRX).
+    const result = (await usdt.transfer(params.destinationAddress, amountSun).send({
       feeLimit: 100_000_000,
     })) as string;
-    logger.info({ txid: result }, 'Tron USDC withdrawal broadcast');
+    logger.info({ txid: result }, 'Tron USDT withdrawal broadcast');
     return { txid: result };
   }
 

@@ -623,7 +623,7 @@ export class AiBinaryService {
           ? 'AI_BINARY_PROFIT_TARGET_REACHED'
           : 'AI_BINARY_DAILY_PROFIT_LIMIT_REACHED',
         message: sessionTargetHit
-          ? `AI session profit ${sessionProfit.toFixed(2)} reached the ${this.settings.profitTargetUsd} USDC target`
+          ? `AI session profit ${sessionProfit.toFixed(2)} reached the ${this.settings.profitTargetUsd} USDT target`
           : `AI daily profit ${dailyProfit.toFixed(2)} reached ${this.settings.dailyProfitLimitPercent}% of starting equity`,
         equityAtTrigger: account.equity,
       });

@@ -3,7 +3,7 @@ import type { TronConnectionStatus, TronFeeEstimate, TronReadiness, TronStatus }
 import { config } from '../config.js';
 import { feeWalletTrxBalance, logTronStatusCheck } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { resolveTrxFeeWalletAddress, resolveUsdcTradeAddress } from './appSettings.js';
+import { resolveTrxFeeWalletAddress, resolveUsdtTradeAddress } from './appSettings.js';
 import { explorerBase, isTestnet, NETWORK_NAMES } from './tronNetwork.js';
 
 let lastCheckedAt: string | null = null;
@@ -135,7 +135,7 @@ export function getTronStatus(): TronStatus {
         bandwidthAvailable: lastProbe?.bandwidthAvailable ?? 0,
       };
 
-  const tradeAddress = resolveUsdcTradeAddress();
+  const tradeAddress = resolveUsdtTradeAddress();
   const warnings: string[] = [];
   let connectionStatus: TronConnectionStatus = 'CONNECTED';
   let readiness: TronReadiness = 'READY_TO_TRADE';
@@ -150,7 +150,7 @@ export function getTronStatus(): TronStatus {
     // The trade address may come from the DB (UI) or the environment.
     const configured =
       (tradeAddress.source === 'DATABASE' || tradeAddress.source === 'ENVIRONMENT') &&
-      config.TRON_USDC_CONTRACT_ADDRESS.length > 0;
+      config.TRON_USDT_CONTRACT_ADDRESS.length > 0;
     if (!lastProbe) {
       connectionStatus = 'DEGRADED';
       warnings.push('Tron connectivity has not been checked yet');
@@ -169,7 +169,7 @@ export function getTronStatus(): TronStatus {
       }
       readiness = 'CONFIGURATION_MISSING';
       warnings.push(
-        'Tron configuration missing: save a USDC trade address (or set TRON_DEPOSIT_ADDRESS) and set TRON_USDC_CONTRACT_ADDRESS',
+        'Tron configuration missing: save a USDT trade address (or set TRON_DEPOSIT_ADDRESS) and set TRON_USDT_CONTRACT_ADDRESS',
       );
     }
     if (config.ENABLE_LIVE_TRON_WITHDRAWALS === false && config.TRON_HOT_WALLET_PRIVATE_KEY === '') {
@@ -210,7 +210,7 @@ export function getTronStatus(): TronStatus {
     depositAddress: tradeAddress.address,
     depositAddressSource: tradeAddress.source,
     hotWalletAddress: config.TRON_HOT_WALLET_ADDRESS,
-    usdcContractAddress: config.TRON_USDC_CONTRACT_ADDRESS,
+    usdtContractAddress: config.TRON_USDT_CONTRACT_ADDRESS,
     requiredConfirmations: config.TRON_REQUIRED_CONFIRMATIONS,
     trxBalance: resources.trxBalance,
     energyAvailable: resources.energyAvailable,
@@ -250,7 +250,7 @@ export async function checkTronHealth(): Promise<{ healthy: boolean; status: Tro
   return { healthy, status: { ...status, lastCheckedAt: nowIso } };
 }
 
-/** Estimated Tron network fee for a USDC (TRC20) withdrawal. */
+/** Estimated Tron network fee for a USDT (TRC20) withdrawal. */
 export function estimateWithdrawalFee(destinationAddress: string): TronFeeEstimate {
   void destinationAddress; // reserved for future per-address estimation
   const simulated = config.TRON_MODE === 'SIMULATED';
@@ -285,7 +285,7 @@ export function estimateWithdrawalFee(destinationAddress: string): TronFeeEstima
   const warnings: string[] = [];
   if (!sufficientFeeResources && !simulated) {
     warnings.push(
-      `hot wallet TRX balance (${resources.trxBalance}) or energy may be insufficient — fund the hot wallet with TRX or energy before withdrawing USDC`,
+      `hot wallet TRX balance (${resources.trxBalance}) or energy may be insufficient — fund the hot wallet with TRX or energy before withdrawing USDT`,
     );
   }
   if (config.TRON_WITHDRAWAL_FEE_POLICY === 'BLOCK_IF_INSUFFICIENT') {
@@ -296,12 +296,12 @@ export function estimateWithdrawalFee(destinationAddress: string): TronFeeEstima
 
   return {
     network: 'TRON',
-    asset: 'USDC',
+    asset: 'USDT',
     tokenStandard: 'TRC20',
     estimatedFeeTrx,
     estimatedFeeUsd,
     feePayer:
-      config.TRON_WITHDRAWAL_FEE_POLICY === 'DEDUCT_USDC_FROM_WITHDRAWAL'
+      config.TRON_WITHDRAWAL_FEE_POLICY === 'DEDUCT_USDT_FROM_WITHDRAWAL'
         ? 'DEDUCT_FROM_WITHDRAWAL'
         : 'HOT_WALLET',
     energyRequired,

@@ -24,7 +24,7 @@ docker compose exec -T dev sh -c 'cd /app && pnpm audit --audit-level high'
 ```bash
 docker compose up -d --force-recreate dev   # after any .env change
 docker compose run --rm dev sh -c 'cd /app && UAT_RESET_CONFIRM=YES \
-  UAT_RESET_STARTING_BALANCE_USDC=1000 pnpm --filter @aioption/server reset:uat'
+  UAT_RESET_STARTING_BALANCE_USDT=1000 pnpm --filter @aioption/server reset:uat'
 docker compose run --rm dev sh -c 'cd /app && pnpm --filter @aioption/server verify:uat'
 ```
 
@@ -39,6 +39,11 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
 `TRON_RPC_URL=https://api.shasta.trongrid.io`, no private key), then:
 
 - [ ] UI shows the banner: “Testnet mode: using test network only. No real funds.”
+- [ ] Banner + deposit modal mark the asset: “Testnet asset: USDT-TEST. This is
+      a test token with no real value.”
+- [ ] Balances, deposits, withdrawals and fee estimates all show USDT
+      (base currency; 6 decimals); network fees stay in TRX
+- [ ] no USDC label appears anywhere in the UI
 - [ ] Tron status modal: network name, mode tag SHASTA/NILE, “test network”,
       explorer link, latest block, connection CONNECTED (after the first probe)
 - [ ] readiness is WITHDRAWAL_BLOCKED (withdrawals disabled) — expected
@@ -73,6 +78,9 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
 
 ## 7. Safety guards (config, fail-fast)
 
+- [ ] `BASE_CURRENCY=USDT` everywhere; `BASE_CURRENCY=USDC` aborts at startup
+      with a clear deprecation error; other currencies are rejected
+- [ ] existing USDC rows are migrated to USDT on startup (amounts unchanged)
 - [ ] `MODE=TESTNET` + `TRON_MODE=MAINNET` → refuses to start
 - [ ] `MODE=LIVE` without `LIVE_MODE_CONFIRM` → refuses to start
 - [ ] LIVE + `ENABLE_LIVE_TRON_WITHDRAWALS=true` without

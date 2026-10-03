@@ -72,7 +72,7 @@ beforeEach(() => {
     tradingEnabled: true,
     startingEquity: 500,
     binarySessionGainLimitEnabled: true,
-    binaryMaxSessionGainUsdc: 50,
+    binaryMaxSessionGainUsdt: 50,
     binaryMaxSessionGainPercent: 0,
   });
   connection.getDb().prepare('DELETE FROM binary_contracts').run();
@@ -86,7 +86,7 @@ describe('binary session gain routes', () => {
     const body = res.json();
     expect(body.combinedNetGain).toBe(0);
     expect(body.gainLimitEnabled).toBe(true);
-    expect(body.maxSessionGainUsdc).toBe(50);
+    expect(body.maxSessionGainUsdt).toBe(50);
     expect(body.remainingSessionGain).toBe(50);
     expect(body.gainLimitReached).toBe(false);
   });
@@ -95,16 +95,16 @@ describe('binary session gain routes', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/api/binary/session-settings',
-      payload: { gainLimitEnabled: true, maxSessionGainUsdc: 75, maxSessionGainPercent: 10 },
+      payload: { gainLimitEnabled: true, maxSessionGainUsdt: 75, maxSessionGainPercent: 10 },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().maxSessionGainUsdc).toBe(75);
+    expect(res.json().maxSessionGainUsdt).toBe(75);
     expect(res.json().maxSessionGainPercent).toBe(10);
 
     const bad = await app.inject({
       method: 'PUT',
       url: '/api/binary/session-settings',
-      payload: { maxSessionGainUsdc: -1 },
+      payload: { maxSessionGainUsdt: -1 },
     });
     expect(bad.statusCode).toBe(400);
   });
@@ -128,7 +128,7 @@ describe('binary session gain routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toContain('session gain limit');
@@ -138,7 +138,7 @@ describe('binary session gain routes', () => {
     const retry = await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
     expect(retry.statusCode).toBe(201);
   });

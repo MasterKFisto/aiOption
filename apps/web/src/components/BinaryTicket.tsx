@@ -4,6 +4,8 @@ import { useState } from 'react';
 
 import { api } from '../api/client';
 
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
+
 /** "Binary Raise" quick ticket: UP/DOWN with quick stake/duration/ratio. */
 export function BinaryTicket({ currentPrice }: { currentPrice: number }) {
   const queryClient = useQueryClient();
@@ -36,7 +38,7 @@ export function BinaryTicket({ currentPrice }: { currentPrice: number }) {
   const confirmOpen = () => {
     setConfirming(false);
     openMutation.mutate({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       direction,
       stakeUsd: stake,
       durationSeconds: duration,
@@ -66,7 +68,7 @@ export function BinaryTicket({ currentPrice }: { currentPrice: number }) {
         style={{ marginBottom: 12 }}
       />
       <Typography.Paragraph type="secondary" style={{ marginBottom: 12 }}>
-        BTC/USDC @ ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+        BTC/USDT @ ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
       </Typography.Paragraph>
 
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -92,7 +94,7 @@ export function BinaryTicket({ currentPrice }: { currentPrice: number }) {
         </Row>
 
         <div>
-          <Typography.Text type="secondary">Stake (USDC): </Typography.Text>
+          <Typography.Text type="secondary">Stake ({BASE_CURRENCY_LABEL}): </Typography.Text>
           <Space wrap style={{ marginTop: 4 }}>
             {[5, 10, 20].map((value) => (
               <Button key={value} size="small" type={stake === value ? 'primary' : 'default'} onClick={() => setStake(value)}>
@@ -176,7 +178,7 @@ export function BinaryTicket({ currentPrice }: { currentPrice: number }) {
         okButtonProps={{ danger: true }}
       >
         <Typography.Paragraph>
-          Open <b>{direction}</b> on BTC/USDC for <b>${stake.toFixed(2)}</b> with a{' '}
+          Open <b>{direction}</b> on BTC/USDT for <b>${stake.toFixed(2)}</b> with a{' '}
           <b>{Math.round(payoutRatio * 100)}%</b> payout ({duration}s).
         </Typography.Paragraph>
         <Typography.Paragraph>

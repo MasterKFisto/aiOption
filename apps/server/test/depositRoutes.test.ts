@@ -31,19 +31,19 @@ afterAll(async () => {
 });
 
 describe('deposit routes (simulated Tron)', () => {
-  it('GET /api/deposits/info returns the fixed Tron USDC TRC20 deposit info', async () => {
+  it('GET /api/deposits/info returns the fixed Tron USDT TRC20 deposit info', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/deposits/info' });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.network).toBe('TRON');
-    expect(body.asset).toBe('USDC');
+    expect(body.asset).toBe('USDT');
     expect(body.tokenStandard).toBe('TRC20');
     expect(body.address).toMatch(/^T/);
     expect(body.tronMode).toBe('SIMULATED');
     expect(body.liveWithdrawalsEnabled).toBe(false);
   });
 
-  it('POST /api/deposits/simulate credits the wallet and records network=TRON, asset=USDC, TRC20', async () => {
+  it('POST /api/deposits/simulate credits the wallet and records network=TRON, asset=USDT, TRC20', async () => {
     const before = repo.listTransactions().length;
     const res = await app.inject({
       method: 'POST',
@@ -53,7 +53,7 @@ describe('deposit routes (simulated Tron)', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.deposit.network).toBe('TRON');
-    expect(body.deposit.asset).toBe('USDC');
+    expect(body.deposit.asset).toBe('USDT');
     expect(body.deposit.tokenStandard).toBe('TRC20');
     expect(body.deposit.status).toBe('CONFIRMED');
     expect(body.deposit.txid).toMatch(/^sim-/);

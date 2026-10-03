@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, Descriptions, Modal, Spin, Tag, Typography } from 'antd';
 
 import type { TronStatus } from '@aioption/shared';
+import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
 import { TradeAddressPanel } from './TradeAddressPanel';
@@ -92,8 +93,8 @@ export function TronStatusModal({ open, onClose }: { open: boolean; onClose: () 
             <Descriptions.Item label="Hot wallet">
               {status.hotWalletAddress || 'not configured'}
             </Descriptions.Item>
-            <Descriptions.Item label="USDC contract">
-              {status.usdcContractAddress || 'not configured'}
+            <Descriptions.Item label={`${BASE_CURRENCY_LABEL} contract`}>
+              {status.usdtContractAddress || 'not configured'}
             </Descriptions.Item>
             <Descriptions.Item label="Required confirmations">
               {status.requiredConfirmations}

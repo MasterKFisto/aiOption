@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 /**
  * Phase 6.5.1 end-to-end acceptance test through the REAL Fastify app
  * (buildApp: all routes, migrations, schedulers): deposit 100 → start →
- * open 10 USDC → only 10 locked → second open → sum locked → expiry →
+ * open 10 USDT → only 10 locked → second open → sum locked → expiry →
  * automatic settlement by the 1 s scheduler → funds released.
  */
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aioption-classic-e2e-'));
@@ -88,7 +88,7 @@ describe('Phase 6.5.1 acceptance (full app)', () => {
       },
       { timeout: 4000, interval: 250 },
     );
-    // 10 stake + 8 profit back to cash; only the 5 USDC PUT stays locked.
+    // 10 stake + 8 profit back to cash; only the 5 USDT PUT stays locked.
     expect(await account()).toMatchObject({ cashBalance: 103, lockedBalance: 5, equity: 108 });
 
     const history = (await app.inject({ method: 'GET', url: '/api/classic/history' })).json();

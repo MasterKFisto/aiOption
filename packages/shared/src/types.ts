@@ -100,8 +100,8 @@ export interface Account {
   optionDefaultDurationSeconds: number;
   /** Binary session gain limit enabled flag. */
   binarySessionGainLimitEnabled: boolean;
-  /** Binary max session gain in USDC. */
-  binaryMaxSessionGainUsdc: number;
+  /** Binary max session gain in USDT. */
+  binaryMaxSessionGainUsdt: number;
   /** Optional binary session gain limit as % of starting equity. */
   binaryMaxSessionGainPercent: number;
   /** Whether the trading loop is allowed to execute trades. */
@@ -269,7 +269,7 @@ export interface AccountSummary {
   lossLimitFloorUsd: number;
   /** Combined binary session net gain (manual + AI), in USD. */
   binarySessionGainUsd: number;
-  /** Configured binary session gain limit in USDC (0 = disabled). */
+  /** Configured binary session gain limit in USDT (0 = disabled). */
   binarySessionGainLimitUsd: number;
   /** USD remaining until the binary session gain limit. */
   binarySessionGainRemainingUsd: number;
@@ -341,7 +341,7 @@ export type WithdrawalStatus =
   | 'DISABLED'
   | 'SIMULATED';
 
-/** A USDC (TRC20) deposit credited to the wallet. */
+/** A USDT (TRC20) deposit credited to the wallet. */
 export interface Deposit {
   id: number;
   network: string;
@@ -357,7 +357,7 @@ export interface Deposit {
   notes: string | null;
 }
 
-/** A USDC (TRC20) withdrawal from the wallet. */
+/** A USDT (TRC20) withdrawal from the wallet. */
 export interface Withdrawal {
   id: number;
   network: string;
@@ -384,7 +384,7 @@ export interface DepositInfo {
   /** Where the address comes from (Phase 6.5.1): DATABASE | ENVIRONMENT | SIMULATED | NOT_SET. */
   addressSource?: AddressSource;
   network: 'TRON';
-  asset: 'USDC';
+  asset: 'USDT';
   tokenStandard: 'TRC20';
   tronMode: TronMode;
   liveWithdrawalsEnabled: boolean;
@@ -432,7 +432,7 @@ export type AccountUpdate = Partial<
     | 'maxOptionStakeUsd'
     | 'optionDefaultDurationSeconds'
     | 'binarySessionGainLimitEnabled'
-    | 'binaryMaxSessionGainUsdc'
+    | 'binaryMaxSessionGainUsdt'
     | 'binaryMaxSessionGainPercent'
     | 'tradingEnabled'
     | 'startingEquity'
@@ -528,7 +528,7 @@ export interface TronStatus {
   /** Where depositAddress comes from (Phase 6.5.1). */
   depositAddressSource?: AddressSource;
   hotWalletAddress: string;
-  usdcContractAddress: string;
+  usdtContractAddress: string;
   requiredConfirmations: number;
   trxBalance: number;
   energyAvailable: number;
@@ -538,10 +538,10 @@ export interface TronStatus {
   warnings: string[];
 }
 
-/** Estimated network fee for a Tron USDC (TRC20) withdrawal. */
+/** Estimated network fee for a Tron USDT (TRC20) withdrawal. */
 export interface TronFeeEstimate {
   network: 'TRON';
-  asset: 'USDC';
+  asset: 'USDT';
   tokenStandard: 'TRC20';
   estimatedFeeTrx: number;
   estimatedFeeUsd: number;
@@ -599,7 +599,7 @@ export interface BinarySessionStats {
   losses: number;
   refunds: number;
   gainLimitEnabled: boolean;
-  maxSessionGainUsdc: number;
+  maxSessionGainUsdt: number;
   maxSessionGainPercent: number;
   remainingSessionGain: number;
   gainLimitReached: boolean;
@@ -608,7 +608,7 @@ export interface BinarySessionStats {
 
 export interface BinarySessionSettingsUpdate {
   gainLimitEnabled?: boolean;
-  maxSessionGainUsdc?: number;
+  maxSessionGainUsdt?: number;
   maxSessionGainPercent?: number;
 }
 
@@ -716,17 +716,17 @@ export interface AddressValidation {
 
 /** User-editable Tron addresses (GET /api/wallet/addresses). */
 export interface WalletAddresses {
-  usdcTradeAddress: string;
+  usdtTradeAddress: string;
   withdrawalDestinationAddress: string;
-  /** Effective withdrawal destination (falls back to usdcTradeAddress). */
+  /** Effective withdrawal destination (falls back to usdtTradeAddress). */
   effectiveWithdrawalDestinationAddress: string;
   trxFeeWalletAddress: string;
-  usdcTradeAddressSource: AddressSource;
+  usdtTradeAddressSource: AddressSource;
   withdrawalDestinationAddressSource: AddressSource;
   trxFeeWalletAddressSource: AddressSource;
   updatedAt: string | null;
   validationStatus: {
-    usdcTradeAddress: AddressValidation;
+    usdtTradeAddress: AddressValidation;
     withdrawalDestinationAddress: AddressValidation | null;
     trxFeeWalletAddress: AddressValidation;
   };
@@ -742,8 +742,8 @@ export interface SettingsAuditEntry {
 }
 
 export interface WalletAddressesUpdate {
-  usdcTradeAddress?: string;
-  /** Empty string clears the override (falls back to usdcTradeAddress). */
+  usdtTradeAddress?: string;
+  /** Empty string clears the override (falls back to usdtTradeAddress). */
   withdrawalDestinationAddress?: string;
   /** Empty string clears the override (falls back to env/simulated). */
   trxFeeWalletAddress?: string;

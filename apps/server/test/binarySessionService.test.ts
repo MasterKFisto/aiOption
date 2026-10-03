@@ -83,7 +83,7 @@ beforeEach(() => {
     tradingEnabled: true,
     startingEquity: 500,
     binarySessionGainLimitEnabled: true,
-    binaryMaxSessionGainUsdc: 50,
+    binaryMaxSessionGainUsdt: 50,
     binaryMaxSessionGainPercent: 0,
   });
   connection.getDb().prepare('DELETE FROM binary_contracts').run();
@@ -134,7 +134,7 @@ describe('binary session gain limit', () => {
 
     expect(() =>
       binary.openBinaryContract({
-        asset: 'BTC/USDC',
+        asset: 'BTC/USDT',
         direction: 'UP',
         stakeUsd: 10,
         durationSeconds: 5,
@@ -163,7 +163,7 @@ describe('binary session gain limit', () => {
     expect(resetStats.gainLimitReached).toBe(false);
 
     const contract = binary.openBinaryContract({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       direction: 'UP',
       stakeUsd: 10,
       durationSeconds: 5,
@@ -206,7 +206,7 @@ describe('binary session gain limit', () => {
 
   it('validates session gain settings and unblocks when limits are raised', () => {
     const session = getBinarySessionService();
-    expect(() => session.updateSettings({ maxSessionGainUsdc: 0 })).toThrow(/positive/);
+    expect(() => session.updateSettings({ maxSessionGainUsdt: 0 })).toThrow(/positive/);
     expect(() => session.updateSettings({ maxSessionGainPercent: 101 })).toThrow(/between 0 and 100/);
 
     publishEvent('binary', {
@@ -214,7 +214,7 @@ describe('binary session gain limit', () => {
       contract: { id: 6, source: 'MANUAL_BINARY', result: 'WIN', stakeUsd: 10, potentialProfitUsd: 60 },
     });
     expect(session.isGainLimitReached()).toBe(true);
-    session.updateSettings({ maxSessionGainUsdc: 100 });
+    session.updateSettings({ maxSessionGainUsdt: 100 });
     expect(session.isGainLimitReached()).toBe(false);
 
   });

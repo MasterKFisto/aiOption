@@ -72,7 +72,7 @@ describe('Tron status endpoints', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.network).toBe('TRON');
-    expect(body.asset).toBe('USDC');
+    expect(body.asset).toBe('USDT');
     expect(body.estimatedFeeTrx).toBe(30);
     expect(body.estimatedFeeUsd).toBeCloseTo(3.6, 1);
     expect(body.feePayer).toBe('HOT_WALLET');
@@ -90,7 +90,7 @@ describe('Tron status endpoints', () => {
 
 describe('wallet records endpoints', () => {
   it('GET /api/wallet/records unifies transactions, deposits and withdrawals', async () => {
-    repo.logTransaction({ type: 'DEPOSIT', amount: 100, currency: 'USDC', description: 'test', positionId: null });
+    repo.logTransaction({ type: 'DEPOSIT', amount: 100, currency: 'USDT', description: 'test', positionId: null });
     repo.createDeposit({ amount: 25, status: 'CONFIRMED', txid: 'dep-tx-1' });
     repo.createWithdrawal({
       amount: 10,

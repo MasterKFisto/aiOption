@@ -49,7 +49,7 @@ describe('admin UAT API (enabled)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/uat-reset',
-      payload: { startingBalanceUsdc: 1000 },
+      payload: { startingBalanceUsdt: 1000 },
     });
     expect(res.statusCode).toBe(400);
   });
@@ -66,12 +66,12 @@ describe('admin UAT API (enabled)', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/admin/uat-reset',
-      payload: { confirm: 'YES', startingBalanceUsdc: 1000 },
+      payload: { confirm: 'YES', startingBalanceUsdt: 1000 },
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
-    expect(body.startingBalanceUsdc).toBe(1000);
+    expect(body.startingBalanceUsdt).toBe(1000);
     expect(body.verification.ok).toBe(true);
 
     const account = (await app.inject({ method: 'GET', url: '/api/account' })).json().account;

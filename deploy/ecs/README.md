@@ -41,7 +41,7 @@ Then create the environment file **on the server**:
 ssh -i key.pem user@ECS_IP
 cd /opt/aioption
 cp .env.testnet.example .env
-nano .env        # set TRON_DEPOSIT_ADDRESS, TRON_USDC_CONTRACT_ADDRESS (testnet!)
+nano .env        # set TRON_DEPOSIT_ADDRESS, TRON_USDT_CONTRACT_ADDRESS (testnet!)
 ```
 
 ## 4. Start / stop / logs
@@ -79,7 +79,7 @@ The JSON includes the safety posture (`mode`, `tronMode`,
 ```bash
 docker compose -f docker-compose.prod.yml stop app
 docker compose -f docker-compose.prod.yml run --rm --no-deps \
-  -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDC=1000 \
+  -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDT=1000 \
   app node apps/server/dist/scripts/resetUat.js
 docker compose -f docker-compose.prod.yml run --rm --no-deps \
   app node apps/server/dist/scripts/verifyUat.js
@@ -94,7 +94,10 @@ volume) before wiping. To copy backups off the box to Alibaba Cloud OSS, see
 
 1. `pnpm audit` clean, full test suite green, UAT checklist signed off.
 2. `.env`: `MODE=LIVE`, `TRON_MODE=MAINNET`, mainnet RPC/explorer, real
-   deposit + contract addresses, hot wallet address.
+   deposit + contract addresses, hot wallet address. The base currency is
+   USDT (TRC20). For reference only, the commonly known mainnet USDT TRC20
+   contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t` — independently verify it
+   (e.g. on TronScan) before setting `TRON_USDT_CONTRACT_ADDRESS`.
 3. `LIVE_MODE_CONFIRM=I_UNDERSTAND_REAL_FUNDS` — required to boot at all.
 4. Real withdrawals only if unavoidable: `ENABLE_LIVE_TRON_WITHDRAWALS=true`,
    `TRON_HOT_WALLET_PRIVATE_KEY=…`, and

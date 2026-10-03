@@ -53,14 +53,14 @@ export class RiskEngine {
         type: 'MAX_STAKE_LIMIT_REJECTED',
         message:
           `trade rejected: proposed size ${decision.proposedTradeSizeUsd} exceeds the ` +
-          `${account.maxOptionStakeUsd} USDC maximum stake`,
+          `${account.maxOptionStakeUsd} USDT maximum stake`,
         equityAtTrigger: account.equity,
       });
       return {
         approved: false,
         reason:
           `proposed trade size ${decision.proposedTradeSizeUsd} exceeds the ` +
-          `${account.maxOptionStakeUsd} USDC maximum stake`,
+          `${account.maxOptionStakeUsd} USDT maximum stake`,
       };
     }
     if (decision.proposedTradeSizeUsd !== config.FIXED_TRADE_SIZE_USD) {

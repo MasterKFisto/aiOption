@@ -10,7 +10,7 @@ export function generateAiSignal(
 ): AiSignalResult {
   const neutral = (reason: string): AiSignalResult => ({
     timestamp: new Date(nowMs).toISOString(),
-    asset: 'BTC/USDC',
+    asset: 'BTC/USDT',
     signal: 'NEUTRAL',
     confidence: 0.5,
     reason,
@@ -100,7 +100,7 @@ export function generateAiSignal(
   if (!consistent && !emaAligned) {
     return {
       timestamp: new Date(nowMs).toISOString(),
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       signal: 'NEUTRAL',
       confidence: 0.5,
       reason: 'momentum and EMA disagree',
@@ -110,7 +110,7 @@ export function generateAiSignal(
 
   return {
     timestamp: new Date(nowMs).toISOString(),
-    asset: 'BTC/USDC',
+    asset: 'BTC/USDT',
     signal,
     confidence: Number(confidence.toFixed(4)),
     reason: `momentum ${m5 >= 0 ? '+' : ''}${m5.toFixed(4)}% over 5s, volatility ${volatility.toFixed(4)}%`,

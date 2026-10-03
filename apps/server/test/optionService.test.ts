@@ -86,7 +86,7 @@ describe('option service — config and opening', () => {
   it('opens a classic option with an explicit expiry', () => {
     feed.push(67000);
     const position = service.openOption({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'CALL',
       stakeUsd: 100,
       durationSeconds: 60,
@@ -106,17 +106,17 @@ describe('option service — config and opening', () => {
     expect(transactions.some((t) => t.type === 'OPTION_STAKE_LOCKED')).toBe(true);
   });
 
-  it('rejects stakes above the 100 USDC maximum', () => {
+  it('rejects stakes above the 100 USDT maximum', () => {
     feed.push(67000);
     expect(() =>
-      service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 101, durationSeconds: 60 }),
-    ).toThrow('Maximum option stake is 100 USDC.');
+      service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 101, durationSeconds: 60 }),
+    ).toThrow('Maximum option stake is 100 USDT.');
   });
 
   it('rejects unsupported durations', () => {
     feed.push(67000);
     expect(() =>
-      service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 90 }),
+      service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 90 }),
     ).toThrow('Invalid option duration.');
   });
 });
@@ -126,7 +126,7 @@ describe('option service — settlement', () => {
   it('settles a winning CALL at expiry with the market price', () => {
     feed.push(67000);
     const position = service.openOption({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'CALL',
       stakeUsd: 10,
       durationSeconds: 60,
@@ -151,7 +151,7 @@ describe('option service — settlement', () => {
   it('settles a losing PUT at expiry', () => {
     feed.push(67000);
     const position = service.openOption({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'PUT',
       stakeUsd: 10,
       durationSeconds: 60,
@@ -174,7 +174,7 @@ describe('option service — settlement', () => {
   it('waits within the grace period and refunds when the price stays stale', () => {
     feed.push(67000);
     const position = service.openOption({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'CALL',
       stakeUsd: 10,
       durationSeconds: 60,
@@ -204,7 +204,7 @@ describe('option service — settlement', () => {
   it('does not settle positions that are not yet expired', () => {
     feed.push(67000);
     const position = service.openOption({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'CALL',
       stakeUsd: 10,
       durationSeconds: 300,
@@ -229,9 +229,9 @@ describe('Phase 6.5.1 — each position locks only its own stake', () => {
     repo.updateAccount({ cashBalance: 100, lockedBalance: 0, equity: 100, startingEquity: 100 });
   });
 
-  it('opening a 10 USDC option on a 100 USDC balance locks exactly 10', () => {
+  it('opening a 10 USDT option on a 100 USDT balance locks exactly 10', () => {
     feed.push(67000);
-    const position = service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
+    const position = service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
     const account = repo.getAccount();
     expect(account.cashBalance).toBe(90);
     expect(account.lockedBalance).toBe(10);
@@ -247,7 +247,7 @@ describe('Phase 6.5.1 — each position locks only its own stake', () => {
   it('multiple open positions lock exactly the sum of their stakes', () => {
     feed.push(67000);
     for (const stake of [10, 25, 7.5]) {
-      service.openOption({ asset: 'BTC/USDC', side: 'PUT', stakeUsd: stake, durationSeconds: 60 });
+      service.openOption({ asset: 'BTC/USDT', side: 'PUT', stakeUsd: stake, durationSeconds: 60 });
     }
     const account = repo.getAccount();
     expect(account.lockedBalance).toBe(42.5);
@@ -260,7 +260,7 @@ describe('Phase 6.5.1 — each position locks only its own stake', () => {
     feed.push(67000);
     repo.updateAccount({ cashBalance: 5, lockedBalance: 95 });
     expect(() =>
-      service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 600 }),
+      service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 600 }),
     ).toThrow('Insufficient available balance.');
     expect(repo.getAccount().cashBalance).toBe(5); // nothing locked on rejection
     expect(repo.listPositions('OPEN')).toHaveLength(0);
@@ -270,7 +270,7 @@ describe('Phase 6.5.1 — each position locks only its own stake', () => {
     feed.push(67000);
     for (const durationSeconds of [Number.NaN, 0, 30, 59.5, 90, 3601, 7200]) {
       expect(() =>
-        service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds }),
+        service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds }),
       ).toThrow('Invalid option duration.');
     }
     expect(repo.listPositions('OPEN')).toHaveLength(0);
@@ -279,7 +279,7 @@ describe('Phase 6.5.1 — each position locks only its own stake', () => {
   it('accepts every allowed duration up to 60 minutes and sets expiry = open + duration', () => {
     feed.push(67000);
     for (const durationSeconds of [60, 180, 300, 600, 900, 1800, 3600]) {
-      const p = service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 1, durationSeconds });
+      const p = service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 1, durationSeconds });
       expect(new Date(p.expiresAt!).getTime() - new Date(p.openedAt).getTime()).toBe(durationSeconds * 1000);
       expect(p.durationSeconds).toBe(durationSeconds);
       expect(p.settlementStatus).toBe('OPEN');
@@ -294,8 +294,8 @@ describe('Phase 6.5.1 — settlement releases exactly the stake', () => {
 
   it('settlement releases only that position stake; others stay locked', () => {
     feed.push(67000);
-    const a = service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
-    service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 20, durationSeconds: 600 });
+    const a = service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
+    service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 20, durationSeconds: 600 });
     expire(a.id);
     feed.push(66000); // CALL loses
     expect(service.settleDueOptions()).toBe(1);
@@ -307,7 +307,7 @@ describe('Phase 6.5.1 — settlement releases exactly the stake', () => {
 
   it('settlement is idempotent: a position can never be paid twice', () => {
     feed.push(67000);
-    const p = service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
+    const p = service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
     expect(service.settleExpiredClassicOption(repo.getPositionById(p.id)!, 68000)).toBe(true);
     expect(service.settleExpiredClassicOption(repo.getPositionById(p.id)!, 68000)).toBe(false);
     expect(repo.getAccount()).toMatchObject({ cashBalance: 108, lockedBalance: 0, equity: 108 });
@@ -315,15 +315,15 @@ describe('Phase 6.5.1 — settlement releases exactly the stake', () => {
 
   it('refundAllOpenPositions releases exactly every stake (risk-engine emergency close)', () => {
     feed.push(67000);
-    service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
-    service.openOption({ asset: 'BTC/USDC', side: 'PUT', stakeUsd: 15, durationSeconds: 600 });
+    service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
+    service.openOption({ asset: 'BTC/USDT', side: 'PUT', stakeUsd: 15, durationSeconds: 600 });
     expect(service.refundAllOpenPositions('test')).toBe(2);
     expect(repo.getAccount()).toMatchObject({ cashBalance: 100, lockedBalance: 0, equity: 100 });
   });
 
   it('repairLockedBalance recomputes locked from open stakes without changing equity', () => {
     feed.push(67000);
-    service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
+    service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 600 });
     // Simulate the reported bug: the whole balance shown as locked.
     repo.updateAccount({ cashBalance: 0, lockedBalance: 100 });
     expect(service.repairLockedBalance()).toMatchObject({
@@ -338,12 +338,12 @@ describe('Phase 6.5.1 — settlement releases exactly the stake', () => {
 
   it('Stop blocks new opens but existing positions keep settling at expiry', async () => {
     feed.push(67000);
-    const p = service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
+    const p = service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 60 });
     const { getClassicSettingsStore } = await import('../src/options/classicSettings.js');
     getClassicSettingsStore().setClassicFlag(false);
     try {
       expect(() =>
-        service.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 10, durationSeconds: 60 }),
+        service.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 10, durationSeconds: 60 }),
       ).toThrow(/Classic Options trading is disabled/);
       expire(p.id);
       feed.push(68000);

@@ -83,7 +83,7 @@ describe('binary live status (Phase 6.5.3)', () => {
   it('live view: potential profit/loss, countdown, estimate only in ESTIMATED mode', () => {
     const now = Date.now();
     const contract = {
-      id: 1, asset: 'BTC/USDC', direction: 'UP' as const, stakeUsd: 10, payoutRatio: 0.8,
+      id: 1, asset: 'BTC/USDT', direction: 'UP' as const, stakeUsd: 10, payoutRatio: 0.8,
       potentialProfitUsd: 8, totalReturnIfWinUsd: 18, entryPrice: 100, settlementPrice: null,
       status: 'OPEN' as const, result: null, openedAt: new Date(now - 2000).toISOString(),
       expiresAt: new Date(now + 3000).toISOString(), settledAt: null, marketDataSource: null,

@@ -32,7 +32,7 @@ describe('connection + migrations', () => {
     expect(account.maxOptionStakeUsd).toBe(100);
     expect(account.optionDefaultDurationSeconds).toBe(600); // Phase 6.5.1: 10 minutes
     expect(account.binarySessionGainLimitEnabled).toBe(true);
-    expect(account.binaryMaxSessionGainUsdc).toBe(50);
+    expect(account.binaryMaxSessionGainUsdt).toBe(50);
     expect(account.mode).toBe('PAPER');
     expect(account.tradingEnabled).toBe(false);
     expect(account.equity).toBe(0);
@@ -85,7 +85,7 @@ describe('account repository', () => {
     expect(account.cashBalance).toBe(0);
     expect(account.lockedBalance).toBe(0);
     expect(account.equity).toBe(0);
-    expect(account.baseCurrency).toBe('USDC');
+    expect(account.baseCurrency).toBe('USDT');
     expect(account.fixedTradeSizeUsd).toBe(10);
     expect(account.maxOpenPositions).toBe(0); // Phase 6.5.2: 0 = unlimited trades
     expect(account.lossLimitPercent).toBe(40); // Phase 6.4 default
@@ -151,7 +151,7 @@ describe('transactions repository', () => {
     const tx = repo.logTransaction({
       type: 'DEPOSIT',
       amount: 100,
-      currency: 'USDC',
+      currency: 'USDT',
       description: 'test',
       positionId: null,
     });

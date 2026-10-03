@@ -70,7 +70,7 @@ describe('binary routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/binary/open',
-      payload: { asset: 'BTC/USDC', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
+      payload: { asset: 'BTC/USDT', direction: 'UP', stakeUsd: 10, durationSeconds: 5, payoutRatio: 0.8 },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error).toMatch(/trading is disabled/);

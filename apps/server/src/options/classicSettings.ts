@@ -147,12 +147,12 @@ export class ClassicSettingsStore {
 
     if (maxStake < config.MIN_OPTION_STAKE_USD || maxStake > config.MAX_OPTION_STAKE_USD) {
       throw new ClassicSettingsError(
-        `Maximum stake must be between ${config.MIN_OPTION_STAKE_USD} and ${config.MAX_OPTION_STAKE_USD} USDC.`,
+        `Maximum stake must be between ${config.MIN_OPTION_STAKE_USD} and ${config.MAX_OPTION_STAKE_USD} USDT.`,
       );
     }
     if (defaultStake < config.MIN_OPTION_STAKE_USD || defaultStake > maxStake) {
       throw new ClassicSettingsError(
-        `Default stake must be between ${config.MIN_OPTION_STAKE_USD} and the maximum stake (${maxStake} USDC).`,
+        `Default stake must be between ${config.MIN_OPTION_STAKE_USD} and the maximum stake (${maxStake} USDT).`,
       );
     }
     if (

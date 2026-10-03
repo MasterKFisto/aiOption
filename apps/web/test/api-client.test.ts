@@ -193,7 +193,7 @@ describe('api client', () => {
     await api.serverTime();
 
     await api.openBinary({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       direction: 'UP',
       stakeUsd: 10,
       durationSeconds: 5,
@@ -214,7 +214,7 @@ describe('api client', () => {
     expect(openCall[0]).toBe('/api/binary/open');
     expect(openCall[1]?.method).toBe('POST');
     expect(JSON.parse(openCall[1]?.body as string)).toEqual({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       direction: 'UP',
       stakeUsd: 10,
       durationSeconds: 5,
@@ -229,12 +229,12 @@ describe('api client', () => {
     await api.optionsConfig();
     expect(fetchMock).toHaveBeenLastCalledWith('/api/options/config', undefined);
 
-    await api.openOption({ asset: 'BTC/USDC', side: 'CALL', stakeUsd: 25, durationSeconds: 60 });
+    await api.openOption({ asset: 'BTC/USDT', side: 'CALL', stakeUsd: 25, durationSeconds: 60 });
     let call = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(call[0]).toBe('/api/options/open');
     expect(call[1]?.method).toBe('POST');
     expect(JSON.parse(call[1]?.body as string)).toEqual({
-      asset: 'BTC/USDC',
+      asset: 'BTC/USDT',
       side: 'CALL',
       stakeUsd: 25,
       durationSeconds: 60,
@@ -269,13 +269,13 @@ describe('api client', () => {
     await api.binarySessionStats();
     expect(fetchMock).toHaveBeenLastCalledWith('/api/binary/session-stats', undefined);
 
-    await api.binarySessionSettings({ gainLimitEnabled: false, maxSessionGainUsdc: 75 });
+    await api.binarySessionSettings({ gainLimitEnabled: false, maxSessionGainUsdt: 75 });
     let call = fetchMock.mock.calls[1] as [string, RequestInit];
     expect(call[0]).toBe('/api/binary/session-settings');
     expect(call[1]?.method).toBe('PUT');
     expect(JSON.parse(call[1]?.body as string)).toEqual({
       gainLimitEnabled: false,
-      maxSessionGainUsdc: 75,
+      maxSessionGainUsdt: 75,
     });
 
     await api.binarySessionReset();
