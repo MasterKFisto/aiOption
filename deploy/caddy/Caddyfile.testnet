@@ -1,0 +1,54 @@
+# ============================================
+# aioption — Caddy reverse proxy (Phase 7.2, ECS Nile Testnet)
+#
+# Caddy is the ONLY public entry point:
+#   - :80  → automatic HTTP→HTTPS redirect + Let's Encrypt ACME challenge
+#   - :443 → HTTPS UI + /api (proxied to the internal app on :8080)
+#
+# Required environment variables (from .env, injected by docker-compose):
+#   PUBLIC_DOMAIN    — e.g. yourdomain.com (must resolve to the ECS public IP)
+#   BASIC_AUTH_USER  — e.g. admin
+#   BASIC_AUTH_HASH  — bcrypt hash, generated with:
+#     docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YourStrongPassword'
+#
+# Notes:
+#   - The bcrypt hash contains '$' characters; that is fine — compose passes the
+#     env value through literally and Caddy expands {$VAR} at parse time.
+#   - If PUBLIC_DOMAIN is "localhost", Caddy automatically falls back to its
+#     internal CA instead of Let's Encrypt (handy for a full local rehearsal).
+# ============================================
+
+{$PUBLIC_DOMAIN} {
+	# Whole-site basic auth: this is a personal, single-user app.
+	basicauth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+
+	encode gzip
+
+	# Proxy everything (UI + /api/*) to the internal backend.
+	reverse_proxy app:8080 {
+		# flush_interval -1 = stream responses immediately. Required for the
+		# SSE feed (/api/events). WebSocket upgrades are handled automatically.
+		flush_interval -1
+	}
+
+	header {
+		# HSTS: HTTPS-only from now on (safe — this host serves nothing else).
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		# Don't advertise the server software.
+		-Server
+	}
+
+	# Never proxy dotfiles or well-known paths to the app.
+	@dotfiles path /.* 
+	respond @dotfiles 404
+
+	log {
+		output stdout
+		format console
+	}
+}

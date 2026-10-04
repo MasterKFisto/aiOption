@@ -27,11 +27,11 @@ ssh "${SSH_OPTS[@]}" "${HOST}" "
   set -euo pipefail
   cd ${TARGET}
   if [ ! -f .env ]; then
-    echo 'ERROR: ${TARGET}/.env missing — cp .env.testnet.example .env and edit it first' >&2
+    echo 'ERROR: ${TARGET}/.env missing — cp .env.nile.example .env and edit it first' >&2
     exit 1
   fi
-  echo '==> building and restarting the container'
-  docker compose -f docker-compose.prod.yml up -d --build
+  echo '==> building and restarting the stack (app + caddy)'
+  docker compose -f docker-compose.testnet.yml up -d --build
   echo '==> waiting for health'
   for i in \$(seq 1 30); do
     if curl -fsS http://127.0.0.1:8080/api/health > /dev/null 2>&1; then
@@ -42,6 +42,6 @@ ssh "${SSH_OPTS[@]}" "${HOST}" "
     sleep 2
   done
   echo 'ERROR: container did not become healthy' >&2
-  docker compose -f docker-compose.prod.yml logs --tail 100 app >&2
+  docker compose -f docker-compose.testnet.yml logs --tail 100 app >&2
   exit 1
 "

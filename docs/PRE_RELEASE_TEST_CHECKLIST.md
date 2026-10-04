@@ -99,9 +99,25 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
 
 ## 9. ECS deployment readiness
 
-- [ ] `docker compose -f docker-compose.prod.yml build` succeeds
+- [ ] `docker compose -f docker-compose.testnet.yml build` succeeds
 - [ ] container healthy; UI reachable via
       `ssh -i key.pem -L 8080:localhost:8080 user@ECS_IP`
 - [ ] `deploy/ecs/healthcheck.sh` passes and reports all live flags false
 - [ ] UAT reset CLI works on the server (backup → reset → verify)
 - [ ] backup copied to OSS per `deploy/ecs/backup-to-oss.md`
+
+## 10. Phase 7.2 — HTTPS testnet deployment (Caddy + Nile)
+
+- [ ] `docker compose -f docker-compose.local.yml up --build` works locally
+      with no domain and no host Node.js
+- [ ] `https://localhost:8443` loads the UI (accept internal-CA warning);
+      `https://localhost:8443/api/health` returns 200 through the proxy
+- [ ] ECS: `https://yourdomain.com` loads the UI over a valid Let's Encrypt
+      certificate; HTTP `http://yourdomain.com` redirects to HTTPS
+- [ ] `https://yourdomain.com/api/health` works; basic auth prompts without
+      credentials (401) and succeeds with them
+- [ ] `http://yourdomain.com:8080/api/health` times out — 8080 not public;
+      security group has only 22 (your IP) / 80 / 443; 5173 unused
+- [ ] UI shows "Nile Testnet" in banner/sidebar and the USDT-TEST notice
+- [ ] SSE updates arrive through the proxy (live dashboard updates)
+- [ ] UAT reset + verify run against the testnet compose stack

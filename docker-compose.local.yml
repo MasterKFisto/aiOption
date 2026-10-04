@@ -1,0 +1,63 @@
+# ============================================
+# aioption — LOCAL test of the Phase 7.2 deployment architecture.
+# Same stack as ECS (app + Caddy reverse proxy), no public domain, no Node.js
+# on the host. Caddy terminates TLS for https://localhost with its internal CA.
+#
+# Start:
+#   cp .env.nile.example .env   # PUBLIC_DOMAIN=localhost works out of the box
+#   docker compose -f docker-compose.local.yml up --build
+# Open:
+#   https://localhost:8443          (accept the internal-CA certificate warning)
+#   https://localhost:8443/api/health
+# Debug API directly (loopback only):
+#   curl http://127.0.0.1:8080/api/health
+#
+# Use a different env file / ports without touching .env:
+#   COMPOSE_ENV_FILE=.env.mine LOCAL_HTTPS_PORT=9443 LOCAL_API_PORT=18080 \
+#     docker compose --env-file .env.mine -f docker-compose.local.yml up --build
+# (LOCAL_API_PORT matters when the dev container already holds 127.0.0.1:8080.)
+# ============================================
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: aioption:local
+    container_name: aioption-local-app
+    restart: unless-stopped
+    env_file: ${COMPOSE_ENV_FILE:-.env}
+    ports:
+      # Loopback-only API debugging — same as the ECS testnet compose.
+      # Host side is configurable in case 8080 is already taken locally.
+      - '127.0.0.1:${LOCAL_API_PORT:-8080}:8080'
+    volumes:
+      # Separate local volumes so the rehearsal never touches real data.
+      - aioption-local-data:/app/data
+      - aioption-local-backups:/app/backups
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: aioption-local-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      # Convenient local HTTPS port → https://localhost:8443 (configurable).
+      - '${LOCAL_HTTPS_PORT:-8443}:443'
+    volumes:
+      - ./deploy/caddy/Caddyfile.local:/etc/caddy/Caddyfile:ro
+      - caddy_local_data:/data
+      - caddy_local_config:/config
+
+volumes:
+  aioption-local-data:
+  aioption-local-backups:
+  caddy_local_data:
+  caddy_local_config:

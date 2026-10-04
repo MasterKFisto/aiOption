@@ -1,0 +1,37 @@
+# ============================================
+# aioption — Caddy reverse proxy (Phase 7.2, local testing)
+#
+# Same architecture as the ECS testnet deployment, without a public domain:
+# Caddy terminates TLS with its internal CA for https://localhost (browser
+# shows a certificate warning — accept it, or trust the Caddy root CA).
+# No basic auth locally (loopback only).
+#
+# Start:  docker compose -f docker-compose.local.yml up --build
+# Open:   https://localhost:8443   (default local HTTPS port)
+# ============================================
+
+localhost {
+	# Self-signed via Caddy's internal CA — no public domain needed.
+	tls internal
+
+	encode gzip
+
+	# Proxy everything (UI + /api/*) to the internal backend.
+	reverse_proxy app:8080 {
+		# flush_interval -1 = stream responses immediately. Required for the
+		# SSE feed (/api/events). WebSocket upgrades are handled automatically.
+		flush_interval -1
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		X-Frame-Options "DENY"
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}

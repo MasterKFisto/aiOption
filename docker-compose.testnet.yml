@@ -1,0 +1,85 @@
+# ============================================
+# aioption — NILE TESTNET deployment (Phase 7.2)
+# Alibaba Cloud ECS (or any Docker host) with a public HTTPS entry point.
+#
+# Architecture:
+#   browser ──https://$PUBLIC_DOMAIN──► caddy :443 ──► app :8080 (internal)
+#   Port 8080 is bound to 127.0.0.1 only (SSH-tunnel debugging), never public.
+#
+# Deploy:
+#   cp .env.nile.example .env   # edit: PUBLIC_DOMAIN, BASIC_AUTH_HASH, addresses
+#   chmod 600 .env
+#   docker compose -f docker-compose.testnet.yml up -d --build
+# ============================================
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: aioption:latest
+    container_name: aioption
+    restart: unless-stopped
+    # All application configuration comes from the repository's .env file.
+    # Override the path with COMPOSE_ENV_FILE=/path/to/file if needed.
+    env_file: ${COMPOSE_ENV_FILE:-.env}
+    ports:
+      # Loopback ONLY — reach it via Caddy (https://$PUBLIC_DOMAIN) or an SSH
+      # tunnel: ssh -L 8080:127.0.0.1:8080 user@ECS_IP. Never bind 0.0.0.0.
+      # Default host mapping: 127.0.0.1:8080:8080 (APP_DEBUG_PORT only moves
+      # the loopback debug port, never exposes the app publicly).
+      - '127.0.0.1:${APP_DEBUG_PORT:-8080}:8080'
+    volumes:
+      # SQLite database (WAL) and database backups survive container rebuilds.
+      - aioption-data:/app/data
+      - aioption-backups:/app/backups
+    healthcheck:
+      # Caddy waits for this to pass before it is considered ready.
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:8080/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    # Resource limits: personal app, small instance.
+    cpus: 1.0
+    mem_limit: 512m
+    pids_limit: 256
+    # UAT reset CLI (stop the app first — SQLite is single-writer):
+    #   docker compose -f docker-compose.testnet.yml stop app
+    #   docker compose -f docker-compose.testnet.yml run --rm --no-deps \
+    #     -e UAT_RESET_CONFIRM=YES -e UAT_RESET_STARTING_BALANCE_USDT=1000 \
+    #     app node apps/server/dist/scripts/resetUat.js
+    #   docker compose -f docker-compose.testnet.yml run --rm --no-deps \
+    #     app node apps/server/dist/scripts/verifyUat.js
+    #   docker compose -f docker-compose.testnet.yml start app
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: aioption-caddy
+    restart: unless-stopped
+    depends_on:
+      app:
+        # Only route traffic once the backend (and the UI it serves) is healthy.
+        condition: service_healthy
+    # Caddy is the ONLY service exposing public web ports. Defaults are exactly
+    # 80:80 / 443:443 / 443:443/udp — the variables only relocate the host
+    # side (e.g. a local rehearsal: PUBLIC_HTTP_PORT=9080 PUBLIC_HTTPS_PORT=9443).
+    ports:
+      - '${PUBLIC_HTTP_PORT:-80}:80'        # HTTP → HTTPS redirect + ACME challenge
+      - '${PUBLIC_HTTPS_PORT:-443}:443'     # HTTPS UI + /api
+      - '${PUBLIC_HTTPS_PORT:-443}:443/udp' # HTTP/3
+    environment:
+      # Values are interpolated by compose from .env (or the shell).
+      PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN in .env (e.g. yourdomain.com)}"
+      BASIC_AUTH_USER: "${BASIC_AUTH_USER:-admin}"
+      BASIC_AUTH_HASH: "${BASIC_AUTH_HASH:?generate one with caddy hash-password (see deploy/ecs/README.md)}"
+    volumes:
+      - ./deploy/caddy/Caddyfile.testnet:/etc/caddy/Caddyfile:ro
+      # Persist Let's Encrypt certificates + ACME account across rebuilds.
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  aioption-data:
+  aioption-backups:
+  caddy_data:
+  caddy_config:
