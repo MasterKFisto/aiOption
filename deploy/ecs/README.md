@@ -13,7 +13,8 @@ browser ── https://yourdomain.com ──► caddy :443 ──► app :8080 (
   React app, `https://yourdomain.com/api/…` serves the API (relative `/api`
   paths, no CORS needed, SSE streamed, WebSockets supported).
 - Port **8080 is never public**; port **5173 is not used** in production.
-- The whole site sits behind **basic auth** (personal single-user app).
+- **Phase 7.3: no username/password** — the site opens directly for the
+  temporary testnet period (≤ 2 weeks). See the security warning below.
 - Local rehearsal of the exact same stack needs no domain and no Node.js:
   `docker compose -f docker-compose.local.yml up --build` →
   `https://localhost:8443`.
@@ -83,22 +84,17 @@ TRON_DEPOSIT_ADDRESS=T…             # Nile testnet address (faucet TRX)
 TRON_USDT_CONTRACT_ADDRESS=T…       # a Nile TEST token (USDT-TEST) — never mainnet USDT
 ```
 
-### Basic auth (required — the UI is publicly reachable)
+### Temporary open access (Phase 7.3) — security warning
 
-Generate the password hash **in Docker** (no local tooling needed):
+> ⚠️ **This testnet deployment temporarily allows public access without
+> username and password. For production, authentication, IP restriction, or
+> another access control mechanism should be reintroduced.**
 
-```bash
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'YourStrongPassword'
-```
+**Recommended temporary mitigation:** if possible, restrict the Alibaba Cloud
+security group for **TCP 443 to your trusted IP address** during the test
+period.
 
-Put only the generated bcrypt hash into `.env` (never the plaintext).
-**Single-quote the value** — bcrypt hashes contain `$`, which Compose would
-otherwise expand as a variable and silently corrupt the hash:
-
-```dotenv
-BASIC_AUTH_USER=admin
-BASIC_AUTH_HASH='$2a$14$…'
-```
+No `BASIC_AUTH_USER` / `BASIC_AUTH_HASH` variables are used — do not set them.
 
 Then lock down the file:
 
@@ -127,9 +123,9 @@ volume).
 # on the server — internal app health (loopback only)
 curl http://127.0.0.1:8080/api/health
 
-# from anywhere — public UI + API through Caddy (basic auth)
-curl -u admin:'YourStrongPassword' https://yourdomain.com/api/health
-open https://yourdomain.com        # browser asks for admin / YourStrongPassword
+# from anywhere — public UI + API through Caddy (Phase 7.3: no credentials)
+curl https://yourdomain.com/api/health
+open https://yourdomain.com        # opens directly — no username/password
 
 # http redirects to https
 curl -I http://yourdomain.com      # → 308 → https://yourdomain.com
@@ -175,6 +171,12 @@ see [backup-to-oss.md](backup-to-oss.md).
 
 ## 9. Going LIVE later (checklist)
 
+0. **Re-hardening (required before production):** reintroduce access control.
+   Historical note — Phase 7.2 used Caddy basic auth: add a `basicauth` block
+   to `deploy/caddy/Caddyfile.testnet` with a bcrypt hash generated via
+   `docker run --rm caddy:2-alpine caddy hash-password --plaintext '…'`
+   (keep the hash single-quoted in `.env` — bcrypt hashes contain `$`), or
+   restrict TCP 443/80 in the security group to trusted IPs instead.
 1. `pnpm audit` clean, full test suite green, UAT checklist signed off.
 2. `.env`: `MODE=LIVE`, `TRON_MODE=MAINNET`, mainnet RPC/explorer, real
    deposit + contract addresses, hot wallet address. The base currency is

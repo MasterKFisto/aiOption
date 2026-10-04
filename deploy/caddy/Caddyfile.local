@@ -1,10 +1,10 @@
 # ============================================
-# aioption — Caddy reverse proxy (Phase 7.2, local testing)
+# aioption — Caddy reverse proxy (Phase 7.2/7.3, local testing)
 #
 # Same architecture as the ECS testnet deployment, without a public domain:
 # Caddy terminates TLS with its internal CA for https://localhost (browser
 # shows a certificate warning — accept it, or trust the Caddy root CA).
-# No basic auth locally (loopback only).
+# No authentication (Phase 7.3 — matches the temporary public testnet policy).
 #
 # Start:  docker compose -f docker-compose.local.yml up --build
 # Open:   https://localhost:8443   (default local HTTPS port)

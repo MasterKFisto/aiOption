@@ -434,17 +434,19 @@ non-root container serving the API **and** the built web UI on port 8080,
 bound to loopback, with healthcheck, resource limits and `unless-stopped`
 restart. Phase 7.2 adds the simplified public HTTPS stack on top:
 `docker-compose.testnet.yml` runs that same app behind **Caddy** (TLS via
-Let's Encrypt + basic auth) so the UI is reachable at
-`https://yourdomain.com` and the API at `https://yourdomain.com/api`, while
-8080 stays loopback-only. Alibaba Cloud ECS guide, setup/deploy/healthcheck
+Let's Encrypt) so the UI is reachable at `https://yourdomain.com` and the API
+at `https://yourdomain.com/api`, while 8080 stays loopback-only. Phase 7.3
+removes the temporary basic auth for the short testnet window — the site
+opens without credentials (reintroduce access control before production; see
+deploy/ecs/README.md). Alibaba Cloud ECS guide, setup/deploy/healthcheck
 scripts and OSS backup instructions live in `deploy/ecs/`; the UAT gate
 checklist is `docs/PRE_RELEASE_TEST_CHECKLIST.md` and the risk assessment is
 `docs/CYBERSECURITY_RISK.md`.
 
 ```bash
-cp .env.nile.example .env    # set PUBLIC_DOMAIN + BASIC_AUTH_HASH (see below)
+cp .env.nile.example .env    # set PUBLIC_DOMAIN + Nile addresses
 docker compose -f docker-compose.testnet.yml up -d --build
-# open https://yourdomain.com  (basic auth) — API: https://yourdomain.com/api/health
+# open https://yourdomain.com — API: https://yourdomain.com/api/health (no login)
 ```
 
 ## Phase 7.1 — base currency USDT (USDC sunset on Tron)
@@ -488,9 +490,9 @@ browser ── https://yourdomain.com ──► caddy :443 ──► app :8080 (
   upgrades are automatic).
 - **Caddy** is the only service with public ports: `80` (HTTP→HTTPS redirect +
   ACME challenge) and `443` (+udp for HTTP/3). Certificates from Let's Encrypt
-  are automatic and persisted in the `caddy_data` volume. The whole site is
-  behind **basic auth** (`PUBLIC_DOMAIN` / `BASIC_AUTH_USER` /
-  `BASIC_AUTH_HASH` in `.env`).
+  are automatic and persisted in the `caddy_data` volume. Phase 7.3: **no
+  basic auth** during the temporary testnet window — the UI opens directly
+  (reintroduce access control before production).
 - Port **8080 is bound to `127.0.0.1` only** — debug via SSH tunnel
   (`ssh -L 8080:127.0.0.1:8080 user@ECS_IP`), never publicly.
 
@@ -500,7 +502,7 @@ Files:
 |---|---|
 | `docker-compose.testnet.yml` | ECS Nile deployment: `app` + `caddy` (80/443 public, app healthy-gated) |
 | `docker-compose.local.yml` | Local rehearsal of the same stack — no domain, no Node.js on the host |
-| `deploy/caddy/Caddyfile.testnet` | Public domain, Let's Encrypt, basic auth, proxy → `app:8080` |
+| `deploy/caddy/Caddyfile.testnet` | Public domain, Let's Encrypt, proxy → `app:8080` (no auth in 7.3) |
 | `deploy/caddy/Caddyfile.local` | `localhost` + Caddy internal CA, proxy → `app:8080` |
 | `.env.nile.example` | Nile Testnet template (`TRON_MODE=NILE`, verified RPC/explorer URLs) |
 
@@ -514,9 +516,7 @@ docker compose -f docker-compose.local.yml up --build
 ```
 
 ECS testnet deploy: see [deploy/ecs/README.md](deploy/ecs/README.md) —
-`cp .env.nile.example .env` → set `PUBLIC_DOMAIN` + `BASIC_AUTH_HASH`
-(`docker run --rm caddy:2-alpine caddy hash-password --plaintext '…'`; keep the
-hash **single-quoted** in `.env` — bcrypt hashes contain `$`) →
+`cp .env.nile.example .env` → set `PUBLIC_DOMAIN` (+ `ALLOWED_HOSTS`) →
 `chmod 600 .env` → `docker compose -f docker-compose.testnet.yml up -d --build`.
 Nile endpoints verified against the official TRON docs
 (`https://nile.trongrid.io`, explorer `https://nile.tronscan.org`).

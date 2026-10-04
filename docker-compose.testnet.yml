@@ -1,13 +1,16 @@
 # ============================================
-# aioption — NILE TESTNET deployment (Phase 7.2)
+# aioption — NILE TESTNET deployment (Phase 7.2/7.3)
 # Alibaba Cloud ECS (or any Docker host) with a public HTTPS entry point.
 #
 # Architecture:
 #   browser ──https://$PUBLIC_DOMAIN──► caddy :443 ──► app :8080 (internal)
 #   Port 8080 is bound to 127.0.0.1 only (SSH-tunnel debugging), never public.
 #
+# Phase 7.3: NO basic auth during the temporary testnet period (≤ 2 weeks).
+# If possible, restrict TCP 443 in the ECS security group to your trusted IP.
+#
 # Deploy:
-#   cp .env.nile.example .env   # edit: PUBLIC_DOMAIN, BASIC_AUTH_HASH, addresses
+#   cp .env.nile.example .env   # edit: PUBLIC_DOMAIN, ALLOWED_HOSTS, addresses
 #   chmod 600 .env
 #   docker compose -f docker-compose.testnet.yml up -d --build
 # ============================================
@@ -68,10 +71,8 @@ services:
       - '${PUBLIC_HTTPS_PORT:-443}:443'     # HTTPS UI + /api
       - '${PUBLIC_HTTPS_PORT:-443}:443/udp' # HTTP/3
     environment:
-      # Values are interpolated by compose from .env (or the shell).
+      # Interpolated by compose from .env (or the shell). No auth vars (7.3).
       PUBLIC_DOMAIN: "${PUBLIC_DOMAIN:?set PUBLIC_DOMAIN in .env (e.g. yourdomain.com)}"
-      BASIC_AUTH_USER: "${BASIC_AUTH_USER:-admin}"
-      BASIC_AUTH_HASH: "${BASIC_AUTH_HASH:?generate one with caddy hash-password (see deploy/ecs/README.md)}"
     volumes:
       - ./deploy/caddy/Caddyfile.testnet:/etc/caddy/Caddyfile:ro
       # Persist Let's Encrypt certificates + ACME account across rebuilds.

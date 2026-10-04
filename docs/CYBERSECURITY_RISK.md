@@ -1,11 +1,14 @@
-# Cybersecurity Risk Assessment (Phase 7 / 7.2)
+# Cybersecurity Risk Assessment (Phase 7 / 7.2 / 7.3)
 
 Scope: personal, single-user, Docker-only deployment on Alibaba Cloud ECS.
 Phase 7.2: the app is reachable publicly over **HTTPS** through **Caddy**
-(443/tcp, Let's Encrypt, whole-site **basic auth**); the API container stays
-on **127.0.0.1:8080** and is proxied by Caddy. Security group: 22 (your IP),
-80 (redirect/ACME), 443 — **never 8080/5173**. SSH-tunnel access to 8080
-remains the fallback path.
+(443/tcp, Let's Encrypt); the API container stays on **127.0.0.1:8080** and is
+proxied by Caddy. Security group: 22 (your IP), 80 (redirect/ACME), 443 —
+**never 8080/5173**. SSH-tunnel access to 8080 remains the fallback path.
+**Phase 7.3: the temporary Nile testnet window (≤ 2 weeks) runs WITHOUT basic
+auth** — public access is open; reintroduce authentication, IP restriction, or
+another access control mechanism before production, and prefer restricting
+TCP 443 to a trusted IP in the security group during the test period.
 
 ## Assets
 
@@ -19,10 +22,12 @@ remains the fallback path.
 ## Implemented controls
 
 - **Network**: only Caddy is public (80 redirect/ACME, 443 HTTPS, TLS via
-  Let's Encrypt, HSTS, whole-site basic auth, SSE streaming/WebSocket
-  pass-through). The app binds `127.0.0.1:8080` (compose-enforced), Caddy→app
-  traffic stays on the private Docker network, and the ECS security group
-  blocks everything except 22/80/443. Ports 8080/5173 must never be public.
+  Let's Encrypt, HSTS, SSE streaming/WebSocket pass-through). The app binds
+  `127.0.0.1:8080` (compose-enforced), Caddy→app traffic stays on the private
+  Docker network, and the ECS security group blocks everything except
+  22/80/443. Ports 8080/5173 must never be public. Phase 7.3: no basic auth
+  during the temporary testnet window — compensate by restricting TCP 443 to
+  your trusted IP in the security group where possible.
 - **Request guards** (`security/requestGuard.ts`): Host-header allowlist
   (DNS rebinding) and origin checks on all state-changing requests (CSRF);
   localhost/127.0.0.1/[::1] are treated as one origin. CORS is an explicit
@@ -58,14 +63,13 @@ remains the fallback path.
 
 | Risk | Impact | Mitigation / acceptance |
 |---|---|---|
-| No application authentication | Anyone who reaches the app can operate it | Whole-site **basic auth** at Caddy (bcrypt hash in `.env`, plaintext never stored); SSH key auth for the host; 8080 loopback-only. Single-user app — no in-app accounts by design. |
-| Basic-auth brute force | UI access | bcrypt hash, SSH hardening, security group IP restriction on 22; rotate the hash if suspected (`caddy hash-password`). |
+| No application authentication | Anyone who reaches the app can operate it | **Temporary open access accepted for the ≤ 2-week Nile testnet window (Phase 7.3)** — test funds only, all real-funds switches off, startup guards enforce TESTNET/NILE. Mitigation: restrict TCP 443 to your trusted IP in the ECS security group; reintroduce Caddy basic auth or another access control before production (see deploy/ecs/README.md "Re-hardening"). |
 | In TESTNET, simulated deposits mint internal balance | Cosmetic only — the internal ledger is test funds; no on-chain value | Gated off in LIVE; documented in the UI banner. |
 | Deposit detection trusts TronGrid data | A malicious RPC could fake USDT credits | Credits only count toward a test ledger in TESTNET; for LIVE use your own node or a trusted provider + confirmations (12). |
 | SQLite on a single disk | Host loss = data loss | Nightly OSS backup (deploy/ecs/backup-to-oss.md), pre-reset backups. |
 | Unpatched base image | Container escape (low) | Rebuild regularly (`deploy.sh` rebuilds), unattended host upgrades, non-root runtime. |
 | `.env` on the host | Key material at rest | Host disk encryption; 0600 permissions; never committed (git-ignored). |
-| DoS against the app | App slowdown | Rate risk accepted (single user); Caddy terminates TLS + basic auth before the app; container CPU/mem/pid limits cap blast radius. |
+| DoS against the app | App slowdown | Rate risk accepted (single user); Caddy terminates TLS before the app; container CPU/mem/pid limits cap blast radius. |
 
 ## Incident quick reference
 

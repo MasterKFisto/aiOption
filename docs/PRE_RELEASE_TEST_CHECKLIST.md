@@ -106,18 +106,26 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
 - [ ] UAT reset CLI works on the server (backup → reset → verify)
 - [ ] backup copied to OSS per `deploy/ecs/backup-to-oss.md`
 
-## 10. Phase 7.2 — HTTPS testnet deployment (Caddy + Nile)
+## 10. Phase 7.2/7.3 — HTTPS testnet deployment (Caddy + Nile)
 
 - [ ] `docker compose -f docker-compose.local.yml up --build` works locally
       with no domain and no host Node.js
 - [ ] `https://localhost:8443` loads the UI (accept internal-CA warning);
-      `https://localhost:8443/api/health` returns 200 through the proxy
+      `https://localhost:8443/api/health` returns 200 through the proxy —
+      **no username/password prompt (Phase 7.3)**
 - [ ] ECS: `https://yourdomain.com` loads the UI over a valid Let's Encrypt
-      certificate; HTTP `http://yourdomain.com` redirects to HTTPS
-- [ ] `https://yourdomain.com/api/health` works; basic auth prompts without
-      credentials (401) and succeeds with them
+      certificate **without any username/password prompt**; HTTP
+      `http://yourdomain.com` redirects to HTTPS
+- [ ] `https://yourdomain.com/api/health` returns 200 **without credentials**
 - [ ] `http://yourdomain.com:8080/api/health` times out — 8080 not public;
-      security group has only 22 (your IP) / 80 / 443; 5173 unused
+      security group has only 22 (your IP) / 80 / 443; 5173 unused and not
+      publicly reachable
 - [ ] UI shows "Nile Testnet" in banner/sidebar and the USDT-TEST notice
+      ("Nile Testnet mode: test network only. No real funds.")
+- [ ] Caddy logs show no authentication/basicauth configuration errors
 - [ ] SSE updates arrive through the proxy (live dashboard updates)
 - [ ] UAT reset + verify run against the testnet compose stack
+- [ ] Temporary security warning acknowledged: public access without
+      credentials is accepted for the ≤ 2-week testnet window only; TCP 443
+      restricted to a trusted IP where possible; access control must be
+      reintroduced before production
