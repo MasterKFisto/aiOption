@@ -155,3 +155,22 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
 - [ ] `TRON_TOKEN_SIMULATE_CONNECTION=true` previews the panel locally without
       a real contract
 - [ ] TRX and USDT balances are shown distinctly (never conflated)
+
+## 12. Phase 7.4.1 — stable testnet deployment hotfix
+
+- [ ] `scripts/diagnose.sh` runs on the server and reports container status,
+      env (HOST=0.0.0.0, PORT=8080, MODE=TESTNET, TRON_MODE=NILE), in-container
+      `/api/health` 200, `GET /` index.html, Caddyfile validity, ports
+      (443 public, 8080 loopback-only, no 5173) and the USDT token contract
+      status
+- [ ] backend logs show `Server listening at http://0.0.0.0:8080` and the
+      non-fatal USDT token startup line
+- [ ] a missing/unreachable USDT token contract produces a controlled
+      `/api/tron/token-status` diagnostic (HTTP 200 + reason codes) — never a
+      crash or a 500
+- [ ] `GET /api/*` is never intercepted by the SPA fallback (health registered
+      before static serving)
+- [ ] the production image build fails fast if `apps/web/dist/index.html` is
+      missing
+- [ ] `https://yourdomain.com` loads without SSL errors; HTTP redirects to
+      HTTPS; no basic-auth prompt

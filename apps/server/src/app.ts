@@ -167,9 +167,33 @@ export async function buildApp() {
   });
 
   // Production: serve the built SPA from the same origin (Phase 7). Only the
-  // dist directory is exposed — never data/, backups/ or .env.
+  // dist directory is exposed — never data/, backups/ or .env. Registered LAST:
+  // /api/* routes (including /api/health above) are never intercepted by the
+  // SPA fallback.
   if (config.WEB_DIST_DIR) {
     await registerWebApp(app, config.WEB_DIST_DIR);
+  }
+
+  // Phase 7.4.1: warm + log the USDT token diagnostics at boot (fire-and-forget,
+  // never fatal — a missing/unreachable token contract must not stop the server).
+  if (config.NODE_ENV !== 'test') {
+    void import('./services/tronTokenService.js')
+      .then(({ getTokenStatus }) => getTokenStatus(true))
+      .then((status) => {
+        const log = status.tokenConnected ? logger.info.bind(logger) : logger.warn.bind(logger);
+        log(
+          {
+            tokenConnected: status.tokenConnected,
+            tokenContract: status.tokenContractAddress || null,
+            tokenSymbol: status.tokenSymbol,
+            errors: status.errors,
+          },
+          status.tokenConnected
+            ? 'USDT token connected at startup'
+            : 'USDT token not connected at startup (non-fatal — see /api/tron/token-status)',
+        );
+      })
+      .catch(() => undefined);
   }
 
   return app;

@@ -205,7 +205,61 @@ binary_contracts/ai_decisions/ai_binary_decisions/risk_events/
 tron_fee_deposits are empty. To copy backups off the box to Alibaba Cloud OSS,
 see [backup-to-oss.md](backup-to-oss.md).
 
-## 10. Going LIVE later (checklist)
+## 10. Troubleshooting (Phase 7.4.1)
+
+Run the Docker-only diagnostic script from the repository root on the server —
+it checks containers, backend env, in-container health/UI, the Caddyfile, Caddy
+logs, published ports, the Nile config and the USDT token contract:
+
+```bash
+./scripts/diagnose.sh           # or: bash scripts/diagnose.sh
+```
+
+Manual checks:
+
+```bash
+# 1. Container status (app + caddy must be Up; app must be healthy)
+docker compose -f docker-compose.testnet.yml ps
+
+# 2. Backend logs (look for "Server listening at http://0.0.0.0:8080"
+#    and the non-fatal USDT token startup line)
+docker compose -f docker-compose.testnet.yml logs --tail 100 app
+
+# 3. Caddy logs (certificate issuance, proxy errors)
+docker compose -f docker-compose.testnet.yml logs --tail 100 caddy
+
+# 4. /api/health inside the container
+docker compose -f docker-compose.testnet.yml exec -T app \
+  node -e "fetch('http://127.0.0.1:8080/api/health').then(r=>r.text()).then(console.log)"
+
+# 5. Validate the Caddyfile (uses the mounted file inside the container)
+docker compose -f docker-compose.testnet.yml exec -T caddy \
+  caddy validate --config /etc/caddy/Caddyfile
+
+# 6. Confirm HOST=0.0.0.0 inside the container
+docker compose -f docker-compose.testnet.yml exec -T app printenv HOST
+
+# 7. Confirm PUBLIC_DOMAIN is set (bare host — no scheme/port/path)
+docker compose -f docker-compose.testnet.yml exec -T caddy printenv PUBLIC_DOMAIN
+
+# 8. Confirm the USDT token contract is configured + connected
+docker compose -f docker-compose.testnet.yml exec -T app \
+  node -e "fetch('http://127.0.0.1:8080/api/tron/token-status').then(r=>r.json()).then(j=>console.log(j.errors, j.warnings))"
+
+# 9. Restart the stack
+docker compose -f docker-compose.testnet.yml up -d --build
+```
+
+Common failure → fix:
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `ERR_SSL_PROTOCOL_ERROR` | Caddy down or Caddyfile invalid (e.g. `PUBLIC_DOMAIN` contains `https://` or a port) | check steps 3/5/7; use a bare domain; restart |
+| health check fails / app restarting | app crash-loop | step 2 logs; the token diagnostics are non-fatal by design — look for DB or env errors |
+| UI loads but USDT missing | wrong/missing token contract | step 8, then set the Nile contract (see §8) |
+| 502 from Caddy | app unhealthy (Caddy waits for `service_healthy`) | steps 1/2/4 |
+
+## 11. Going LIVE later (checklist)
 
 0. **Re-hardening (required before production):** reintroduce access control.
    Historical note — Phase 7.2 used Caddy basic auth: add a `basicauth` block

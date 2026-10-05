@@ -29,6 +29,10 @@ RUN pnpm --filter @aioption/shared build \
     && pnpm --filter @aioption/server build \
     && pnpm --filter @aioption/web build
 
+# Phase 7.4.1: build-time check — the image is broken without the built SPA.
+RUN test -f /app/apps/web/dist/index.html \
+    || { echo 'FATAL: apps/web/dist/index.html missing — the web build failed'; exit 1; }
+
 # Prod-only deployment of the server package (workspace deps injected,
 # devDependencies dropped, sources/tests removed).
 RUN pnpm deploy --filter @aioption/server --prod /out/server \

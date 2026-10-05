@@ -381,7 +381,13 @@ async function runChecks(): Promise<TronTokenStatus> {
   return status;
 }
 
-/** Cached token status (≤ 60 s). Pass forceRefresh for the manual UI test. */
+/**
+ * Cached token status (≤ 60 s). Pass forceRefresh for the manual UI test.
+ *
+ * Phase 7.4.1: NEVER throws — an unexpected failure returns a controlled
+ * diagnostic response (HTTP 200 with errors populated) instead of a 500, so a
+ * token problem can never break the backend or the UI.
+ */
 export async function getTokenStatus(forceRefresh = false): Promise<TronTokenStatus> {
   if (
     !forceRefresh &&
@@ -391,9 +397,17 @@ export async function getTokenStatus(forceRefresh = false): Promise<TronTokenSta
   ) {
     return cache;
   }
-  const status = await runChecks();
-  cache = status;
-  return status;
+  try {
+    const status = await runChecks();
+    cache = status;
+    return status;
+  } catch (err) {
+    logger.error({ err }, 'token status check failed unexpectedly');
+    const status = baseStatus();
+    status.errors.push('TOKEN_QUERY_FAILED');
+    status.warnings.push('Token status check failed unexpectedly — see server logs.');
+    return status;
+  }
 }
 
 /** Manual "Test Token Connection" — always performs fresh chain queries. */

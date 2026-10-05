@@ -253,6 +253,22 @@ describe('Phase 7.4 token status', () => {
     expect(status.tokenName).toBe('Tether USD Test');
     expect(status.warnings.some((w) => w.includes('Simulated token connection'))).toBe(true);
   });
+
+  // Phase 7.4.1 hotfix: with NO injected querier and an unreachable RPC, the
+  // service must return a controlled diagnostic — never throw (never a 500).
+  it('never throws when the default querier cannot reach the RPC (controlled diagnostic)', async () => {
+    process.env['TRON_MODE'] = 'NILE';
+    process.env['TRON_RPC_URL'] = 'https://127.0.0.1:9'; // nothing listens there
+    process.env['TRON_USDT_CONTRACT_ADDRESS'] = TOKEN_CONTRACT;
+    await loadTokenModules();
+
+    const status = await tokenService.getTokenStatus(true);
+    expect(status.rpcConnected).toBe(false);
+    expect(status.errors).toContain('TRON_RPC_UNREACHABLE');
+    expect(status.tokenConnected).toBe(false);
+    expect(status.lastCheckedAt).toBeTruthy();
+    delete process.env['TRON_RPC_URL'];
+  });
 });
 
 /* ------------------- deposits / withdrawals contract tracking -------------- */

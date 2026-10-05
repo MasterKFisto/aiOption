@@ -17,6 +17,10 @@
 #     docker compose --env-file .env.mine -f docker-compose.local.yml up --build
 # (LOCAL_API_PORT matters when the dev container already holds 127.0.0.1:8080.)
 # ============================================
+
+# Distinct compose project so `ps`/diagnostics never mix with the dev stack.
+name: aioption-local
+
 services:
   app:
     build:

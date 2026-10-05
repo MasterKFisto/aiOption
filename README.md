@@ -505,6 +505,7 @@ Files:
 | `deploy/caddy/Caddyfile.testnet` | Public domain, Let's Encrypt, proxy → `app:8080` (no auth in 7.3) |
 | `deploy/caddy/Caddyfile.local` | `localhost` + Caddy internal CA, proxy → `app:8080` |
 | `.env.nile.example` | Nile Testnet template (`TRON_MODE=NILE`, verified RPC/explorer URLs) |
+| `scripts/diagnose.sh` | Phase 7.4.1: Docker-only deployment diagnostics (containers, env, health, UI, Caddyfile, ports, token) |
 
 Local test (Docker only):
 
