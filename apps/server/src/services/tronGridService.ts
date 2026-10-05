@@ -2,7 +2,7 @@ import type { TronMode } from '@aioption/shared';
 
 import { config } from '../config.js';
 import { logger } from '../logger.js';
-import { resolveUsdtTradeAddress } from './appSettings.js';
+import { resolveUsdtTokenContract, resolveUsdtTradeAddress } from './appSettings.js';
 import type {
   IncomingUsdtTransfer,
   TransactionStatusResult,
@@ -115,7 +115,9 @@ export class TronGridTronService implements TronService {
 
   async getIncomingUsdtTransfers(): Promise<IncomingUsdtTransfer[]> {
     const address = await this.getDepositAddress();
-    const contract = config.TRON_USDT_CONTRACT_ADDRESS;
+    // Phase 7.4: the DB-saved token contract overrides the env default. Only
+    // transfers of THIS contract are ever returned (contract-scoped query).
+    const contract = resolveUsdtTokenContract().address;
     if (!contract) {
       throw new Error('TRON_USDT_CONTRACT_ADDRESS is not configured for live Tron mode');
     }
@@ -142,6 +144,7 @@ export class TronGridTronService implements TronService {
         fromAddress: t.from,
         toAddress: t.to,
         amountUsdt: Number(t.value) / 1e6,
+        contractAddress: contract,
         confirmations: 0,
         blockTimestamp: t.block_timestamp,
       }));
@@ -158,7 +161,7 @@ export class TronGridTronService implements TronService {
     if (!privateKey) {
       throw new Error('TRON_HOT_WALLET_PRIVATE_KEY is not configured');
     }
-    const contract = config.TRON_USDT_CONTRACT_ADDRESS;
+    const contract = resolveUsdtTokenContract().address;
     if (!contract) {
       throw new Error('TRON_USDT_CONTRACT_ADDRESS is not configured');
     }

@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS deposits (
   network         TEXT    NOT NULL DEFAULT 'TRON',
   asset           TEXT    NOT NULL DEFAULT 'USDT',
   token_standard  TEXT    NOT NULL DEFAULT 'TRC20',
+  token_contract_address TEXT,
   amount          REAL    NOT NULL,
   from_address    TEXT,
   txid            TEXT    UNIQUE,
@@ -109,6 +110,7 @@ CREATE TABLE IF NOT EXISTS withdrawals (
   network             TEXT    NOT NULL DEFAULT 'TRON',
   asset               TEXT    NOT NULL DEFAULT 'USDT',
   token_standard      TEXT    NOT NULL DEFAULT 'TRC20',
+  token_contract_address TEXT,
   amount              REAL    NOT NULL,
   destination_address TEXT    NOT NULL,
   status              TEXT    NOT NULL,
@@ -315,6 +317,13 @@ export function runMigrations(db: Database.Database): void {
   }
   if (!hasColumn(db, 'withdrawals', 'fee_notes')) {
     db.exec('ALTER TABLE withdrawals ADD COLUMN fee_notes TEXT');
+  }
+  // Phase 7.4: token contract recorded on every deposit/withdrawal.
+  if (!hasColumn(db, 'deposits', 'token_contract_address')) {
+    db.exec('ALTER TABLE deposits ADD COLUMN token_contract_address TEXT');
+  }
+  if (!hasColumn(db, 'withdrawals', 'token_contract_address')) {
+    db.exec('ALTER TABLE withdrawals ADD COLUMN token_contract_address TEXT');
   }
   // Phase 6.4: AI profit-target stats columns.
   if (!hasColumn(db, 'ai_binary_stats', 'profit_target_usd')) {

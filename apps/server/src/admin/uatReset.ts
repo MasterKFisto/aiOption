@@ -56,6 +56,8 @@ export const UAT_PRESERVED_SETTINGS = [
   'usdt_trade_address',
   'withdrawal_destination_address',
   'trx_fee_wallet_address',
+  // Phase 7.4: the user's USDT token contract override survives UAT resets.
+  'usdt_token_contract',
   'migration_6_5_1_classic_defaults',
   'migration_6_5_2_unlimited_trades',
   'migration_7_1_base_currency_usdt',

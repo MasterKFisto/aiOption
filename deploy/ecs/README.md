@@ -149,7 +149,43 @@ ssh -i key.pem -L 8080:127.0.0.1:8080 user@ECS_IP
 curl http://localhost:8080/api/health
 ```
 
-## 8. UAT reset (clear the database before testnet validation)
+## 8. Configuring the USDT token on Nile Testnet (Phase 7.4)
+
+On Tron, TRX and TRC20 tokens can share the same wallet address — your Nile
+USDT-TEST balance lives at the same address as your test TRX. The app
+recognizes USDT **by its TRC20 token contract address**: if the configured
+contract is wrong or missing, the USDT balance is invisible and deposits are
+not detected.
+
+1. Obtain the correct **Nile Testnet** USDT / USDT-TEST token contract address
+   (e.g. from the faucet that issued your test tokens). There is no official
+   USDT on Nile — never use the mainnet contract (the app warns if you do).
+2. Configure it either way:
+   - `.env`: `TRON_USDT_CONTRACT_ADDRESS=T…` (environment default), or
+   - UI: Tron status modal → **USDT Token Connection** → "USDT Token Contract
+     Address" → Save (stored in the database; **the database value overrides
+     the environment default** and the change is audit-logged).
+3. Click **"Test Token Connection"**. The panel queries the contract on Nile
+   and shows: token name, symbol, decimals, the deposit-address token balance,
+   the hot-wallet token balance and the hot-wallet TRX balance, plus
+   connection status, warnings, errors and the last-checked time.
+4. If the token symbol is not exactly `USDT` (test faucets issue symbols like
+   `USDT-TEST`/`TESTUSDT`), that's acceptable while `TRON_USDT_ALLOW_TEST_TOKEN=true`
+   — the panel shows a warning and the UI displays the actual symbol.
+5. Deposits are only credited when the incoming TRC20 transfer comes from the
+   configured contract (transfers from other token contracts are ignored and
+   never credited); every deposit/withdrawal record stores the contract
+   address. Withdrawals are blocked with "Insufficient USDT token balance in
+   hot wallet." when the hot wallet holds too little of the token.
+6. If the RPC is unreachable or the contract is missing/invalid, the panel and
+   `GET /api/tron/token-status` report a specific reason
+   (`TRON_RPC_UNREACHABLE`, `TOKEN_CONTRACT_MISSING`, `TOKEN_CONTRACT_INVALID`,
+   `TOKEN_CONTRACT_NOT_FOUND`, `TOKEN_QUERY_FAILED`, `TOKEN_NOT_TRC20`, …).
+
+Local rehearsal without a Nile contract: `TRON_TOKEN_SIMULATE_CONNECTION=true`
+makes the token service return simulated USDT-TEST info (never in LIVE mode).
+
+## 9. UAT reset (clear the database before testnet validation)
 
 ```bash
 cd /opt/aioption
@@ -169,7 +205,7 @@ binary_contracts/ai_decisions/ai_binary_decisions/risk_events/
 tron_fee_deposits are empty. To copy backups off the box to Alibaba Cloud OSS,
 see [backup-to-oss.md](backup-to-oss.md).
 
-## 9. Going LIVE later (checklist)
+## 10. Going LIVE later (checklist)
 
 0. **Re-hardening (required before production):** reintroduce access control.
    Historical note — Phase 7.2 used Caddy basic auth: add a `basicauth` block
@@ -181,7 +217,7 @@ see [backup-to-oss.md](backup-to-oss.md).
 2. `.env`: `MODE=LIVE`, `TRON_MODE=MAINNET`, mainnet RPC/explorer, real
    deposit + contract addresses, hot wallet address. The base currency is
    USDT (TRC20). For reference only, the commonly known mainnet USDT TRC20
-   contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t` — independently verify it
+   contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` — independently verify it
    (e.g. on TronScan) before setting `TRON_USDT_CONTRACT_ADDRESS`.
 3. `LIVE_MODE_CONFIRM=I_UNDERSTAND_REAL_FUNDS` — required to boot at all.
 4. Real withdrawals only if unavoidable: `ENABLE_LIVE_TRON_WITHDRAWALS=true`,

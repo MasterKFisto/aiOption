@@ -12,9 +12,14 @@ import {
   updateWithdrawalStatus,
 } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
+import { resolveUsdtTokenContract } from '../services/appSettings.js';
 import { tronService } from '../services/tronService.js';
 import { estimateWithdrawalFee } from '../services/tronStatusService.js';
 import { getFeeReserveStatus } from '../services/tronFeeWalletService.js';
+import {
+  hotWalletTokenBalance,
+  INSUFFICIENT_HOT_WALLET_TOKEN_MESSAGE,
+} from '../services/tronTokenService.js';
 import { WalletService } from '../services/walletService.js';
 
 /** Base58 Tron address: 34 chars, T-prefixed. */
@@ -76,6 +81,9 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
         });
     }
 
+    // Phase 7.4: every withdrawal is bound to the configured token contract.
+    const tokenContractAddress = resolveUsdtTokenContract().address || null;
+
     // Network fee estimate + resource gate (Phase 6.4/6.5).
     const fee = estimateWithdrawalFee(destinationAddress);
     const feeReserve = getFeeReserveStatus();
@@ -87,6 +95,7 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
         amount,
         destinationAddress,
         status: 'SIMULATED',
+        tokenContractAddress,
         txid: `sim-${randomUUID()}`,
         notes: 'simulated Tron USDT TRC20 withdrawal',
         feeEstimateTrx: fee.estimatedFeeTrx,
@@ -123,6 +132,7 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
       amount,
       destinationAddress,
       status,
+      tokenContractAddress,
       feeEstimateTrx: fee.estimatedFeeTrx,
       feeEstimateUsd: fee.estimatedFeeUsd,
       feePayer: fee.feePayer,
@@ -143,6 +153,15 @@ export async function withdrawalRoutes(app: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Phase 7.4: never broadcast more of the token than the hot wallet holds.
+      const tokenBalance = await hotWalletTokenBalance();
+      if (tokenBalance !== null && tokenBalance + 1e-9 < amount) {
+        updateWithdrawalStatus(withdrawal.id, 'FAILED', { error: INSUFFICIENT_HOT_WALLET_TOKEN_MESSAGE });
+        return reply.code(400).send({
+          error: INSUFFICIENT_HOT_WALLET_TOKEN_MESSAGE,
+          hotWalletTokenBalance: tokenBalance,
+        });
+      }
       const broadcast = await tronService.sendUsdtWithdrawal({
         destinationAddress,
         amountUsdt: amount,

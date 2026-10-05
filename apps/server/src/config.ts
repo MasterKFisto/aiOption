@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 
 import { logger } from './logger.js';
+import { isKnownMainnetToken } from './services/knownTokens.js';
 
 /** Supported trading modes. */
 export const TRADING_MODES = ['PAPER', 'TESTNET', 'LIVE'] as const;
@@ -59,6 +60,14 @@ const envSchema = z.object({
   TRON_HOT_WALLET_ADDRESS: z.string().trim().default(''),
   /** USDT TRC20 contract address for the selected Tron network. */
   TRON_USDT_CONTRACT_ADDRESS: z.string().trim().default(''),
+  /** Expected token symbol — informational; test tokens may differ (7.4). */
+  TRON_USDT_EXPECTED_SYMBOL: z.string().trim().min(1).max(32).default('USDT'),
+  /** Expected token decimals — the actual contract decimals are used (7.4). */
+  TRON_USDT_EXPECTED_DECIMALS: z.coerce.number().int().min(0).max(36).default(6),
+  /** Allow test tokens whose symbol/decimals differ from the expected USDT (7.4). */
+  TRON_USDT_ALLOW_TEST_TOKEN: z.string().trim().default('true'),
+  /** Local testing: return simulated token info instead of querying the chain (7.4). */
+  TRON_TOKEN_SIMULATE_CONNECTION: z.string().trim().default('false'),
   /** TronGrid API key (optional but recommended for live mode). */
   TRON_GRID_API_KEY: z.string().trim().default(''),
   /** Confirmations required before crediting an incoming USDT transfer. */
@@ -416,6 +425,10 @@ export const config = {
   TRON_DEPOSIT_ADDRESS: env.TRON_DEPOSIT_ADDRESS,
   TRON_HOT_WALLET_ADDRESS: env.TRON_HOT_WALLET_ADDRESS,
   TRON_USDT_CONTRACT_ADDRESS: env.TRON_USDT_CONTRACT_ADDRESS,
+  TRON_USDT_EXPECTED_SYMBOL: env.TRON_USDT_EXPECTED_SYMBOL,
+  TRON_USDT_EXPECTED_DECIMALS: env.TRON_USDT_EXPECTED_DECIMALS,
+  TRON_USDT_ALLOW_TEST_TOKEN: env.TRON_USDT_ALLOW_TEST_TOKEN === 'true',
+  TRON_TOKEN_SIMULATE_CONNECTION: env.TRON_TOKEN_SIMULATE_CONNECTION === 'true',
   TRON_GRID_API_KEY: env.TRON_GRID_API_KEY,
   TRON_REQUIRED_CONFIRMATIONS: env.TRON_REQUIRED_CONFIRMATIONS,
   /**
@@ -507,6 +520,26 @@ function parseNumberList(raw: string): number[] {
     .split(',')
     .map((part) => Number(part.trim()))
     .filter((value) => Number.isFinite(value) && value > 0);
+}
+
+/* ------------------- Phase 7.4: token startup warnings -------------------- */
+// Non-fatal by design — /api/tron/token-status surfaces the same state.
+if (config.TRON_MODE !== 'SIMULATED' && !config.TRON_USDT_CONTRACT_ADDRESS) {
+  logger.warn(
+    config.TRON_MODE === 'NILE'
+      ? 'USDT token contract is not configured. Deposits and withdrawals using USDT will not work until the Nile Testnet USDT token contract is configured.'
+      : `USDT token contract is not configured (TRON_USDT_CONTRACT_ADDRESS) — token deposits/withdrawals are unavailable on ${config.TRON_MODE}`,
+  );
+}
+if (
+  config.TRON_MODE !== 'MAINNET' &&
+  config.TRON_USDT_CONTRACT_ADDRESS &&
+  isKnownMainnetToken(config.TRON_USDT_CONTRACT_ADDRESS)
+) {
+  logger.warn(
+    { contract: config.TRON_USDT_CONTRACT_ADDRESS, tronMode: config.TRON_MODE },
+    'configured USDT token contract is a known MAINNET token — wrong network; deposits will not be detected',
+  );
 }
 
 export type AppConfig = typeof config;

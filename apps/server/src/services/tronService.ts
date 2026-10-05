@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 
 import { config } from '../config.js';
-import { SIMULATED_DEPOSIT_ADDRESS, resolveUsdtTradeAddress } from './appSettings.js';
+import {
+  resolveUsdtTokenContract,
+  resolveUsdtTradeAddress,
+  SIMULATED_DEPOSIT_ADDRESS,
+} from './appSettings.js';
 import { TronGridTronService } from './tronGridService.js';
 
 /** An incoming USDT TRC20 transfer observed on-chain. */
@@ -11,6 +15,8 @@ export interface IncomingUsdtTransfer {
   toAddress: string;
   /** Amount in USDT (already divided by 1e6). */
   amountUsdt: number;
+  /** Phase 7.4: the TRC20 contract the transfer was observed on. */
+  contractAddress: string | null;
   confirmations: number;
   blockTimestamp: number;
 }
@@ -56,12 +62,15 @@ export class SimulatedTronService implements TronService {
   private readonly transfers: IncomingUsdtTransfer[] = [];
 
   /** Creates a fake incoming transfer (used by POST /api/deposits/simulate). */
-  simulateIncomingUsdt(amountUsdt: number, fromAddress?: string): IncomingUsdtTransfer {
+  simulateIncomingUsdt(amountUsdt: number, fromAddress?: string, contractAddress?: string): IncomingUsdtTransfer {
     const transfer: IncomingUsdtTransfer = {
       txid: `sim-${randomUUID()}`,
       fromAddress: fromAddress ?? 'TSimulatedSenderAddress000000000000',
       toAddress: this.address(),
       amountUsdt,
+      // Default to the configured contract; tests may pass a different one to
+      // prove mismatched-token transfers are never credited.
+      contractAddress: contractAddress ?? resolveUsdtTokenContract().address ?? null,
       confirmations: 999,
       blockTimestamp: Date.now(),
     };

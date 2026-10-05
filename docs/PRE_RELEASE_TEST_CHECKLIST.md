@@ -129,3 +129,29 @@ Start with the testnet env (`MODE=TESTNET`, `TRON_MODE=SHASTA`,
       credentials is accepted for the ≤ 2-week testnet window only; TCP 443
       restricted to a trusted IP where possible; access control must be
       reintroduced before production
+
+## 11. Phase 7.4 — USDT token on Nile Testnet
+
+- [ ] Tron status modal → "USDT Token Connection" shows network, RPC URL,
+      deposit + hot wallet addresses, contract address with source
+      (Environment/Database/Not Set), metadata, balances, status, warnings,
+      errors and last-checked time
+- [ ] without a contract configured, the UI shows "USDT token contract is not
+      configured." and `/api/tron/token-status` reports `TOKEN_CONTRACT_MISSING`
+- [ ] an invalid contract format reports `TOKEN_CONTRACT_INVALID`; a
+      nonexistent one `TOKEN_CONTRACT_NOT_FOUND`; unreachable RPC
+      `TRON_RPC_UNREACHABLE`
+- [ ] saving a contract from the UI persists it (database overrides env) and
+      writes a `usdt_token_contract` row to the settings audit log
+- [ ] "Test Token Connection" re-queries the chain on demand
+- [ ] a test token symbol (USDT-TEST/TESTUSDT) warns but stays connected while
+      `TRON_USDT_ALLOW_TEST_TOKEN=true`
+- [ ] the known mainnet USDT contract on Nile triggers the strong MAINNET
+      warning (and is never a default)
+- [ ] deposits record `tokenContractAddress`; transfers from other token
+      contracts are ignored (never credited)
+- [ ] withdrawals record `tokenContractAddress` and block with "Insufficient
+      USDT token balance in hot wallet." when appropriate
+- [ ] `TRON_TOKEN_SIMULATE_CONNECTION=true` previews the panel locally without
+      a real contract
+- [ ] TRX and USDT balances are shown distinctly (never conflated)

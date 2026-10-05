@@ -471,7 +471,7 @@ currency is **USDT (TRC20, 6 decimals — unchanged)**:
   (labelled **USDT-TEST**, "Tether USD Test", 6 decimals). The UI marks it:
   "Testnet asset: USDT-TEST. This is a test token with no real value."
 - No contract address is hardcoded. For reference only, the commonly known
-  mainnet USDT TRC20 contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj0t` —
+  mainnet USDT TRC20 contract is `TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t` —
   independently verify it before any mainnet use.
 
 ## Phase 7.2 — simplified HTTPS testnet deployment (Caddy + Nile)
@@ -520,6 +520,33 @@ ECS testnet deploy: see [deploy/ecs/README.md](deploy/ecs/README.md) —
 `chmod 600 .env` → `docker compose -f docker-compose.testnet.yml up -d --build`.
 Nile endpoints verified against the official TRON docs
 (`https://nile.trongrid.io`, explorer `https://nile.tronscan.org`).
+
+## Phase 7.4 — USDT token connection on Nile Testnet
+
+USDT is a TRC20 token identified by its **contract address** (TRX and USDT can
+share one wallet address on Tron — the contract is what distinguishes them):
+
+- `TRON_USDT_CONTRACT_ADDRESS` is the env default; the Tron status modal's
+  **USDT Token Connection** panel can save an override from the UI (database
+  wins, audit-logged, survives UAT resets). `GET /api/tron/token-status`
+  reports RPC reachability, the on-chain token name/symbol/decimals, deposit +
+  hot-wallet token balances and the hot-wallet TRX balance, with specific
+  reason codes (`TOKEN_CONTRACT_MISSING`, `TOKEN_CONTRACT_INVALID`,
+  `TOKEN_CONTRACT_NOT_FOUND`, `TOKEN_NOT_TRC20`, `TOKEN_QUERY_FAILED`,
+  `TRON_RPC_UNREACHABLE`, `DEPOSIT_ADDRESS_INVALID`, `HOT_WALLET_ADDRESS_INVALID`,
+  `TOKEN_SYMBOL_MISMATCH`, `TOKEN_DECIMALS_MISMATCH`) — and a **Test Token
+  Connection** button forces a fresh check.
+- Test tokens are expected on Nile: `TRON_USDT_ALLOW_TEST_TOKEN=true` (default)
+  accepts symbols like `USDT-TEST` with a warning; the UI always shows the
+  actual contract symbol. A known mainnet contract on a test network triggers
+  a strong warning (never an active default). Missing contract on Nile logs a
+  startup warning.
+- Deposits are credited only from the configured contract (other token
+  contracts are ignored, never credited); deposits and withdrawals record
+  `token_contract_address`. Broadcasting more than the hot wallet's token
+  balance is blocked ("Insufficient USDT token balance in hot wallet.").
+- `TRON_TOKEN_SIMULATE_CONNECTION=true` previews the panel locally without a
+  real Nile contract (never in LIVE).
 
 ## TypeScript
 

@@ -29,6 +29,8 @@ export const SETTING_KEYS = {
   usdtTradeAddress: 'usdt_trade_address',
   withdrawalDestinationAddress: 'withdrawal_destination_address',
   trxFeeWalletAddress: 'trx_fee_wallet_address',
+  /** Phase 7.4: USDT TRC20 token contract override (DB wins over env). */
+  usdtTokenContract: 'usdt_token_contract',
   classicTradingEnabled: 'classic_trading_enabled',
   classicDefaultStakeUsd: 'classic_default_stake_usd',
   totalLossLimitPercent: 'total_loss_limit_percent',
@@ -81,6 +83,22 @@ export function resolveUsdtTradeAddress(): ResolvedAddress {
   }
   if (config.TRON_MODE === 'SIMULATED') {
     return { address: SIMULATED_DEPOSIT_ADDRESS, source: 'SIMULATED', updatedAt: null };
+  }
+  return { address: '', source: 'NOT_SET', updatedAt: null };
+}
+
+/**
+ * USDT TRC20 token contract (Phase 7.4): database → environment → not set.
+ * No simulated placeholder — a contract either exists on the configured
+ * network or it doesn't.
+ */
+export function resolveUsdtTokenContract(): ResolvedAddress {
+  const stored = readSetting(SETTING_KEYS.usdtTokenContract);
+  if (stored) {
+    return { address: stored.value, source: 'DATABASE', updatedAt: stored.updatedAt };
+  }
+  if (config.TRON_USDT_CONTRACT_ADDRESS) {
+    return { address: config.TRON_USDT_CONTRACT_ADDRESS, source: 'ENVIRONMENT', updatedAt: null };
   }
   return { address: '', source: 'NOT_SET', updatedAt: null };
 }

@@ -347,6 +347,8 @@ export interface Deposit {
   network: string;
   asset: string;
   tokenStandard: string;
+  /** Phase 7.4: TRC20 contract the deposit was detected on (null = legacy/simulated). */
+  tokenContractAddress: string | null;
   amount: number;
   fromAddress: string | null;
   txid: string | null;
@@ -363,6 +365,8 @@ export interface Withdrawal {
   network: string;
   asset: string;
   tokenStandard: string;
+  /** Phase 7.4: TRC20 contract the withdrawal targets (null = legacy/simulated). */
+  tokenContractAddress: string | null;
   amount: number;
   destinationAddress: string;
   status: WithdrawalStatus;
@@ -707,6 +711,54 @@ export interface ClassicStatus {
 }
 
 export type AddressSource = 'DATABASE' | 'ENVIRONMENT' | 'SIMULATED' | 'NOT_SET';
+
+/* ------------------------- Phase 7.4: TRC20 token -------------------------- */
+
+/** Where the active USDT token contract address comes from. */
+export type TokenContractSource = 'DATABASE' | 'ENVIRONMENT' | 'NOT_SET';
+
+/** Machine-readable token validation reason codes (Phase 7.4). */
+export type TokenValidationCode =
+  | 'TRON_RPC_UNREACHABLE'
+  | 'DEPOSIT_ADDRESS_INVALID'
+  | 'HOT_WALLET_ADDRESS_INVALID'
+  | 'TOKEN_CONTRACT_MISSING'
+  | 'TOKEN_CONTRACT_INVALID'
+  | 'TOKEN_CONTRACT_NOT_FOUND'
+  | 'TOKEN_QUERY_FAILED'
+  | 'TOKEN_NOT_TRC20'
+  | 'TOKEN_SYMBOL_MISMATCH'
+  | 'TOKEN_DECIMALS_MISMATCH';
+
+/** USDT (TRC20) token connection status (GET /api/tron/token-status). */
+export interface TronTokenStatus {
+  tronMode: TronMode;
+  networkName: string;
+  rpcUrl: string;
+  rpcConnected: boolean;
+  depositAddress: string;
+  hotWalletAddress: string;
+  tokenContractAddress: string;
+  /** Where the contract address comes from (DB overrides env). */
+  tokenContractSource: TokenContractSource;
+  tokenConfigured: boolean;
+  tokenConnected: boolean;
+  /** True when the data comes from TRON_TOKEN_SIMULATE_CONNECTION (local test). */
+  simulated: boolean;
+  tokenName: string | null;
+  tokenSymbol: string | null;
+  tokenDecimals: number | null;
+  depositTokenBalance: string | null;
+  hotWalletTokenBalance: string | null;
+  hotWalletTrxBalance: string | null;
+  expectedSymbol: string;
+  expectedDecimals: number;
+  allowTestToken: boolean;
+  warnings: string[];
+  /** Machine-readable reason codes (TokenValidationCode). */
+  errors: string[];
+  lastCheckedAt: string | null;
+}
 
 export interface AddressValidation {
   valid: boolean;

@@ -3,7 +3,7 @@ import type { TronConnectionStatus, TronFeeEstimate, TronReadiness, TronStatus }
 import { config } from '../config.js';
 import { feeWalletTrxBalance, logTronStatusCheck } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
-import { resolveTrxFeeWalletAddress, resolveUsdtTradeAddress } from './appSettings.js';
+import { resolveTrxFeeWalletAddress, resolveUsdtTokenContract, resolveUsdtTradeAddress } from './appSettings.js';
 import { explorerBase, isTestnet, NETWORK_NAMES } from './tronNetwork.js';
 
 let lastCheckedAt: string | null = null;
@@ -210,7 +210,7 @@ export function getTronStatus(): TronStatus {
     depositAddress: tradeAddress.address,
     depositAddressSource: tradeAddress.source,
     hotWalletAddress: config.TRON_HOT_WALLET_ADDRESS,
-    usdtContractAddress: config.TRON_USDT_CONTRACT_ADDRESS,
+    usdtContractAddress: resolveUsdtTokenContract().address,
     requiredConfirmations: config.TRON_REQUIRED_CONFIRMATIONS,
     trxBalance: resources.trxBalance,
     energyAvailable: resources.energyAvailable,

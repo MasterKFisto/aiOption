@@ -73,3 +73,24 @@ export function validateTronAddress(input: unknown): AddressValidation {
 export function isValidTronAddress(input: unknown): boolean {
   return validateTronAddress(input).valid;
 }
+
+/**
+ * Decodes a valid base58 Tron address to its hex form (21 bytes: 0x41 prefix +
+ * 20-byte payload — the format the Tron API and TRC20 ABI parameters use).
+ * Throws on invalid input; call validateTronAddress first for user input.
+ */
+export function tronAddressToHex(address: string): string {
+  let value = 0n;
+  for (const char of address) {
+    const index = BASE58_ALPHABET.indexOf(char);
+    if (index < 0) {
+      throw new Error('address contains non-base58 characters');
+    }
+    value = value * 58n + BigInt(index);
+  }
+  const hex = value.toString(16).padStart(50, '0');
+  if (hex.length !== 50 || !hex.startsWith('41')) {
+    throw new Error('address does not decode to a Tron hex address');
+  }
+  return hex;
+}

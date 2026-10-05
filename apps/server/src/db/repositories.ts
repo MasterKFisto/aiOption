@@ -695,6 +695,7 @@ interface DepositRow {
   network: string;
   asset: string;
   token_standard: string;
+  token_contract_address: string | null;
   amount: number;
   from_address: string | null;
   txid: string | null;
@@ -710,6 +711,7 @@ const toDeposit = (r: DepositRow): Deposit => ({
   network: r.network,
   asset: r.asset,
   tokenStandard: r.token_standard,
+  tokenContractAddress: r.token_contract_address ?? null,
   amount: r.amount,
   fromAddress: r.from_address,
   txid: r.txid,
@@ -724,6 +726,8 @@ export interface NewDepositInput {
   network?: string;
   asset?: string;
   tokenStandard?: string;
+  /** Phase 7.4: TRC20 contract the transfer was detected on. */
+  tokenContractAddress?: string | null;
   amount: number;
   fromAddress?: string | null;
   txid?: string | null;
@@ -745,6 +749,7 @@ export function createDeposit(input: NewDepositInput): Deposit | null {
         network: string;
         asset: string;
         tokenStandard: string;
+        tokenContractAddress: string | null;
         amount: number;
         fromAddress: string | null;
         txid: string | null;
@@ -757,14 +762,15 @@ export function createDeposit(input: NewDepositInput): Deposit | null {
       unknown
     >(
       `INSERT OR IGNORE INTO deposits
-         (network, asset, token_standard, amount, from_address, txid, status, confirmations, created_at, credited_at, notes)
+         (network, asset, token_standard, token_contract_address, amount, from_address, txid, status, confirmations, created_at, credited_at, notes)
        VALUES
-         (@network, @asset, @tokenStandard, @amount, @fromAddress, @txid, @status, @confirmations, @createdAt, @creditedAt, @notes)`,
+         (@network, @asset, @tokenStandard, @tokenContractAddress, @amount, @fromAddress, @txid, @status, @confirmations, @createdAt, @creditedAt, @notes)`,
     )
     .run({
       network: input.network ?? 'TRON',
       asset: input.asset ?? 'USDT',
       tokenStandard: input.tokenStandard ?? 'TRC20',
+      tokenContractAddress: input.tokenContractAddress ?? null,
       amount: input.amount,
       fromAddress: input.fromAddress ?? null,
       txid: input.txid ?? null,
@@ -798,6 +804,7 @@ interface WithdrawalRow {
   network: string;
   asset: string;
   token_standard: string;
+  token_contract_address: string | null;
   amount: number;
   destination_address: string;
   status: string;
@@ -818,6 +825,7 @@ const toWithdrawal = (r: WithdrawalRow): Withdrawal => ({
   network: r.network,
   asset: r.asset,
   tokenStandard: r.token_standard,
+  tokenContractAddress: r.token_contract_address ?? null,
   amount: r.amount,
   destinationAddress: r.destination_address,
   status: r.status as WithdrawalStatus,
@@ -837,6 +845,8 @@ export interface NewWithdrawalInput {
   amount: number;
   destinationAddress: string;
   status: WithdrawalStatus;
+  /** Phase 7.4: TRC20 contract the withdrawal targets. */
+  tokenContractAddress?: string | null;
   txid?: string | null;
   error?: string | null;
   notes?: string | null;
@@ -857,6 +867,7 @@ export function createWithdrawal(input: NewWithdrawalInput): Withdrawal {
         amount: number;
         destinationAddress: string;
         status: string;
+        tokenContractAddress: string | null;
         txid: string | null;
         error: string | null;
         createdAt: string;
@@ -873,11 +884,11 @@ export function createWithdrawal(input: NewWithdrawalInput): Withdrawal {
       unknown
     >(
       `INSERT INTO withdrawals
-         (network, asset, token_standard, amount, destination_address, status, txid, error, created_at, updated_at, notes,
+         (network, asset, token_standard, token_contract_address, amount, destination_address, status, txid, error, created_at, updated_at, notes,
           fee_estimate_trx, fee_estimate_usd, fee_payer, fee_status, fee_notes,
           fee_reserve_sufficient, fee_reserve_error)
        VALUES
-         ('TRON', 'USDT', 'TRC20', @amount, @destinationAddress, @status, @txid, @error, @createdAt, @updatedAt, @notes,
+         ('TRON', 'USDT', 'TRC20', @tokenContractAddress, @amount, @destinationAddress, @status, @txid, @error, @createdAt, @updatedAt, @notes,
           @feeEstimateTrx, @feeEstimateUsd, @feePayer, @feeStatus, @feeNotes,
           @feeReserveSufficient, @feeReserveError)`,
     )
@@ -885,6 +896,7 @@ export function createWithdrawal(input: NewWithdrawalInput): Withdrawal {
       amount: input.amount,
       destinationAddress: input.destinationAddress,
       status: input.status,
+      tokenContractAddress: input.tokenContractAddress ?? null,
       txid: input.txid ?? null,
       error: input.error ?? null,
       createdAt: timestamp,

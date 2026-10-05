@@ -298,4 +298,25 @@ describe('api client', () => {
     expect(call[1]?.method).toBe('POST');
     expect(JSON.parse(call[1]?.body as string)).toEqual({ amountTrx: 120 });
   });
+
+  it('builds Phase 7.4 token requests with relative paths', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(jsonResponse({})));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await api.tronTokenStatus();
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/tron/token-status', undefined);
+
+    await api.testTronTokenConnection();
+    let call = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(call[0]).toBe('/api/tron/token-test');
+    expect(call[1]?.method).toBe('POST');
+
+    await api.saveTronTokenContract('TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t');
+    call = fetchMock.mock.calls[2] as [string, RequestInit];
+    expect(call[0]).toBe('/api/tron/token-contract');
+    expect(call[1]?.method).toBe('PUT');
+    expect(JSON.parse(call[1]?.body as string)).toEqual({
+      address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t',
+    });
+  });
 });

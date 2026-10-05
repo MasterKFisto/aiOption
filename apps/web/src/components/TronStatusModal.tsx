@@ -5,6 +5,7 @@ import type { TronStatus } from '@aioption/shared';
 import { BASE_CURRENCY_LABEL } from '@aioption/shared';
 
 import { api } from '../api/client';
+import { TokenConnectionPanel } from './TokenConnectionPanel';
 import { TradeAddressPanel } from './TradeAddressPanel';
 import { TrxFeeDepositPanel } from './TrxFeeDepositPanel';
 
@@ -121,6 +122,9 @@ export function TronStatusModal({ open, onClose }: { open: boolean; onClose: () 
               style={{ marginTop: 8 }}
             />
           ))}
+          <div style={{ marginTop: 16 }}>
+            <TokenConnectionPanel active={open} />
+          </div>
           <div style={{ marginTop: 16 }}>
             <TradeAddressPanel compact />
           </div>

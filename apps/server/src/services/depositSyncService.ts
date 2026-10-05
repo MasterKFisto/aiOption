@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createDeposit } from '../db/repositories.js';
 import { publishEvent } from '../events/eventBus.js';
 import { logger } from '../logger.js';
+import { resolveUsdtTokenContract } from './appSettings.js';
 import { tronService } from './tronService.js';
 import { WalletService } from './walletService.js';
 
@@ -18,18 +19,35 @@ export function getLastSyncedAt(): string | null {
  * Pulls incoming USDT transfers from the Tron service and credits new ones.
  * Idempotency: deposits carry a UNIQUE txid, so re-syncing the same transfer
  * is a no-op (never credited twice).
+ *
+ * Phase 7.4: only transfers from the CONFIGURED token contract are credited.
+ * A transfer tagged with any other contract is skipped (never credited) and
+ * logged — deposits from unrecognized token contracts are not USDT.
  */
 export async function syncDepositsOnce(): Promise<number> {
   let credited = 0;
   try {
     const transfers = await tronService.getIncomingUsdtTransfers();
+    const configuredContract = resolveUsdtTokenContract().address || null;
     const wallet = new WalletService();
     for (const transfer of transfers) {
+      if (
+        configuredContract !== null &&
+        transfer.contractAddress !== null &&
+        transfer.contractAddress !== configuredContract
+      ) {
+        logger.warn(
+          { txid: transfer.txid, contract: transfer.contractAddress, configuredContract },
+          'deposit skipped: transfer from an unrecognized token contract (not credited)',
+        );
+        continue;
+      }
       const amount = roundMoney(transfer.amountUsdt);
       const deposit = createDeposit({
         amount,
         fromAddress: transfer.fromAddress,
         txid: transfer.txid,
+        tokenContractAddress: transfer.contractAddress ?? configuredContract,
         status: 'CONFIRMED',
         confirmations: transfer.confirmations,
         creditedAt: new Date().toISOString(),
@@ -63,6 +81,7 @@ export function recordSimulatedDeposit(amountUsdt: number): boolean {
     amount,
     fromAddress: 'TSimulatedSenderAddress000000000000',
     txid,
+    tokenContractAddress: resolveUsdtTokenContract().address || null,
     status: 'CONFIRMED',
     confirmations: 999,
     creditedAt: new Date().toISOString(),

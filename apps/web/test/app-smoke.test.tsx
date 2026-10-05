@@ -444,6 +444,32 @@ function stubFetch(): void {
       lastCheckedAt: null,
       warnings: ['simulated Tron mode — no real chain interaction'],
     },
+    // Phase 7.4: token panel (no contract configured in the smoke environment).
+    '/api/tron/token-status': {
+      tronMode: 'SIMULATED',
+      networkName: 'Simulated',
+      rpcUrl: '',
+      rpcConnected: true,
+      depositAddress: 'TSimulatedAiOptionDepositAddressUSDT1',
+      hotWalletAddress: '',
+      tokenContractAddress: '',
+      tokenContractSource: 'NOT_SET',
+      tokenConfigured: false,
+      tokenConnected: false,
+      simulated: false,
+      tokenName: null,
+      tokenSymbol: null,
+      tokenDecimals: null,
+      depositTokenBalance: null,
+      hotWalletTokenBalance: null,
+      hotWalletTrxBalance: null,
+      expectedSymbol: 'USDT',
+      expectedDecimals: 6,
+      allowTestToken: true,
+      warnings: ['USDT token contract is not configured.'],
+      errors: ['TOKEN_CONTRACT_MISSING'],
+      lastCheckedAt: new Date().toISOString(),
+    },
     '/api/wallet/records?type=ALL&limit=100&offset=0': {
       records: [
         {
@@ -839,6 +865,16 @@ describe('App smoke test (blank-screen regression guard)', () => {
       // Trade address panel is reachable from the Tron status modal too.
       const modal = document.querySelector('.ant-modal') as HTMLElement;
       expect(modal.textContent).toContain('USDT Tron trade address');
+    });
+
+    // Phase 7.4: the modal contains the USDT Token Connection panel and shows
+    // the missing-contract error clearly.
+    await waitFor(() => {
+      const modal = document.querySelector('.ant-modal') as HTMLElement;
+      expect(modal.textContent).toContain('USDT Token Connection');
+      expect(modal.textContent).toContain('TOKEN_CONTRACT_MISSING');
+      expect(modal.textContent).toContain('USDT token contract is not configured.');
+      expect(modal.textContent).toContain('Test Token Connection');
     });
   });
 

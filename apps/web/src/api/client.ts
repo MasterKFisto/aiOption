@@ -29,6 +29,7 @@ import type {
   RiskEvent,
   TronFeeEstimate,
   TronStatus,
+  TronTokenStatus,
   TrxFeeDeposit,
   TrxFeeDepositInfo,
   TrxFeeStatus,
@@ -200,6 +201,15 @@ export const api = {
   tronFeeDepositInfo: () => request<TrxFeeDepositInfo>('/api/tron/fee-deposit-info'),
   tronFeeStatus: () => request<TrxFeeStatus>('/api/tron/fee-status'),
   tronFeeDeposits: () => request<TrxFeeDeposit[]>('/api/tron/fee-deposits'),
+  /* ----------------------------- Phase 7.4: token -------------------------- */
+  tronTokenStatus: () => request<TronTokenStatus>('/api/tron/token-status'),
+  testTronTokenConnection: () => request<TronTokenStatus>('/api/tron/token-test', { method: 'POST' }),
+  saveTronTokenContract: (address: string) =>
+    request<TronTokenStatus>('/api/tron/token-contract', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address }),
+    }),
   simulateTrxDeposit: (amountTrx: number) =>
     request<TrxFeeStatus>('/api/tron/simulate-trx-deposit', {
       method: 'POST',
